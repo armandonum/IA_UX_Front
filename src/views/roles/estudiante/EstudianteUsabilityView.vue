@@ -139,13 +139,14 @@
   const router = useRouter()
   const figmaSession = useFigmaSessionStore()
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
+const AI_URL = import.meta.env.VITE_IA_SERVICE
   // ============================================================
   // CONFIGURACIÓN
   // ============================================================
   const NODE_ID = '1-759'
-  const EMOTION_SERVICE_URL = 'http://localhost:8000/analyze-frame'
+  const EMOTION_SERVICE_URL = `${AI_URL}/analyze-frame`
   const EMOTION_CAPTURE_INTERVAL_MS = 2000
-  const TEXT_SERVICE_URL = 'http://localhost:8000/analyze-text'
+  const TEXT_SERVICE_URL = `${AI_URL}/analyze-text`
 
   const fileKey = computed(
     () => (route.params.fileKey as string) || figmaSession.selectedProject?.fileKey || ''
@@ -663,7 +664,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 
   async function checkTextAIConnection() {
     try {
-      const res = await fetch('http://localhost:8000/health')
+      const res = await fetch(`${import.meta.env.VITE_IA_SERVICE}/health`)
       isTextAIConnected.value = res.ok
     } catch {
       isTextAIConnected.value = false

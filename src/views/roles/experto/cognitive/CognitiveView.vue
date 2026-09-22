@@ -137,13 +137,13 @@ const $q = useQuasar()
 const auth = useAuthStore()
 const api = useCognitiveApi()
 const session = useCognitiveSession()
-
+const AI_URL = import.meta.env.VITE_IA_SERVICE
 // ============================================================
 // CONFIGURACIÓN
 // ============================================================
-const EMOTION_SERVICE_URL = 'http://localhost:8000/analyze-frame'
+const EMOTION_SERVICE_URL = `${AI_URL}/analyze-frame`
 const EMOTION_CAPTURE_INTERVAL_MS = 2000
-const TEXT_SERVICE_URL = 'http://localhost:8000/analyze-text'
+const TEXT_SERVICE_URL = `${AI_URL}/analyze-text`
 
 // ============================================================
 // AUDIO

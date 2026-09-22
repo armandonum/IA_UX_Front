@@ -135,13 +135,13 @@ const {
 
 const clientId = computed(() => figmaSession.clientId)
 const evaluationId = computed(() => route.params.evaluationId as string)
-
+const AI_URL = import.meta.env.VITE_IA_SERVICE
 // ============================================================
 // CONFIGURACIÓN
 // ============================================================
-const EMOTION_SERVICE_URL = 'http://localhost:8000/analyze-frame'
+const EMOTION_SERVICE_URL = `${AI_URL}/analyze-frame`
 const EMOTION_CAPTURE_INTERVAL_MS = 2000
-const TEXT_SERVICE_URL = 'http://localhost:8000/analyze-text'
+const TEXT_SERVICE_URL = `${AI_URL}/analyze-text`
 
 // ============================================================
 // AUDIO
@@ -663,7 +663,7 @@ watch(transcribedText, async (newText) => {
 
 async function checkTextAIConnection() {
   try {
-    const res = await fetch('http://localhost:8000/health')
+    const res = await fetch(`${AI_URL}/health`)
     isTextAIConnected.value = res.ok
     console.log('🔌 [TextAI] Conectado:', res.ok)
   } catch {

@@ -285,9 +285,9 @@ const auth = useAuthStore()
 const FILE_KEY = 'JgVFcd3J8KSUL6MMLlZ6YY'
 const NODE_ID = '1-759'
 const CLIENT_ID = 'ATBfU46hXxHKWnVxld4rL9'
-
+const AI_URL = import.meta.env.VITE_IA_SERVICE
 // Servicio de IA de emociones (FastAPI, proyecto/servidor aparte)
-const EMOTION_SERVICE_URL = 'http://localhost:8000/analyze-frame'
+const EMOTION_SERVICE_URL = `${AI_URL}/analyze-frame`
 // Cada cuánto se manda un frame a analizar (ms)
 const EMOTION_CAPTURE_INTERVAL_MS = 2000
 
