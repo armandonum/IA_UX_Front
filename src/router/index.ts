@@ -20,7 +20,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: '/dashboard' },
 
-      // Role-agnostic dashboard (redirects internally by role)
+      // ── Dashboard ─────────────────────────────────────────────────────────
       {
         path: 'dashboard',
         name: 'dashboard',
@@ -28,7 +28,7 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
 
-      // ── Administrador ──────────────────────────────────────────────────────
+      // ── Administrador ─────────────────────────────────────────────────────
       {
         path: 'admin',
         name: 'admin',
@@ -52,14 +52,17 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['Administrador'] as RoleName[] },
       },
 
-      // ── Coordinador ───────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // ── COORDINADOR ───────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+
+      // Método Cognitivo
       {
         path: 'Coordinador',
         name: 'Coordinador',
         component: () => import('@/views/roles/coordinador/CoordinadorView.vue'),
         meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
       },
-           // ── Coordinador ───────────────────────────────────────────────────────
       {
         path: 'Coordinador/Projects',
         name: 'Coordinadorprojects',
@@ -67,6 +70,25 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
       },
 
+      // Método Heurístico — IMPORTANTE: las rutas con ID van DESPUÉS de la lista
+      {
+        path: 'Coordinador/Heuristico',
+        name: 'CoordinadorHeuristico',
+        component: () => import('@/views/roles/coordinador/heuristic/HeuristicCoordinatorView.vue'),
+        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+      },
+      {
+        path: 'Coordinador/Heuristico/:evaluationId',
+        name: 'CoordinadorHeuristicoDetail',
+        component: () => import('@/views/roles/coordinador/heuristic/HeuristicEvaluationDetailView.vue'),
+        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+      },
+      {
+        path: 'Coordinador/Heuristico/:evaluationId/sesion/:sessionId',
+        name: 'CoordinadorHeuristicoSessionDetail',
+        component: () => import('@/views/roles/coordinador/heuristic/HeuristicSessionDetailView.vue'),
+        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+      },
 
       // ── Docente ───────────────────────────────────────────────────────────
       {
@@ -83,12 +105,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/roles/estudiante/EstudianteProyectosView.vue'),
         meta: { roles: ['Estudiante', 'Administrador'] as RoleName[] },
       },
- {
-    path: '/estudiante/evaluacion/:fileKey',
-    name: 'estudiante-evaluacion',
-    component: () => import('@/views/roles/estudiante/EstudianteUsabilityView.vue'),
-    props: true,
-  },
+      {
+        path: '/estudiante/evaluacion/:fileKey',
+        name: 'estudiante-evaluacion',
+        component: () => import('@/views/roles/estudiante/EstudianteUsabilityView.vue'),
+        props: true,
+      },
+
       // ── Experto UX ────────────────────────────────────────────────────────
       {
         path: 'ux',
@@ -96,33 +119,29 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/roles/ExpertoUXView.vue'),
         meta: { roles: ['Experto UX', 'Administrador'] as RoleName[] },
       },
-
       {
-  path: '/experto/sesiones/:sessionId',
-  name: 'experto-sesion-detalle',
-  component: () => import('@/views/roles/experto/SessionDetailView.vue'),
-},
-
-  {
-    path: '/heuristica',
-    name: 'experto-proyectos-heuristic',
-    component: () => import('@/views/roles/experto/heuristic/HeuristicProjectsView.vue'),
-
-    meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] }
-  },
-   {
-    path: '/cognitivo',
-    name: 'experto-cognitive',
-    component: () => import('@/views/roles/experto/cognitive/CognitiveView.vue'),
-
-    meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] }
-  },
-  
-{
-  path: '/experto/heuristic/:fileKey',
-  name: 'experto-heuristic',
-  component: () => import('@/views/roles/experto/heuristic/HeuristicEvaluationView.vue')
-},
+        path: '/experto/sesiones/:sessionId',
+        name: 'experto-sesion-detalle',
+        component: () => import('@/views/roles/experto/SessionDetailView.vue'),
+      },
+      {
+        path: '/heuristica',
+        name: 'experto-proyectos-heuristic',
+        component: () => import('@/views/roles/experto/heuristic/HeuristicProjectsView.vue'),
+        meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] },
+      },
+      {
+        path: '/heuristica/evaluacion/:evaluationId',
+        name: 'experto-heuristic-evaluation',
+        component: () => import('@/views/roles/experto/heuristic/HeuristicEvaluationView.vue'),
+        meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] as RoleName[] },
+      },
+      {
+        path: '/cognitivo',
+        name: 'experto-cognitive',
+        component: () => import('@/views/roles/experto/cognitive/CognitiveView.vue'),
+        meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] },
+      },
 
       // ── Moderador ─────────────────────────────────────────────────────────
       {
@@ -156,7 +175,7 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['responsable ético', 'Administrador'] as RoleName[] },
       },
 
-      // ── Perfil / cambio de contraseña ─────────────────────────────────────
+      // ── Perfil ────────────────────────────────────────────────────────────
       {
         path: 'profile',
         name: 'profile',
@@ -188,7 +207,6 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Restore session on full page reload
   if (!auth.user && auth.accessToken) {
     await auth.fetchMe()
   }
@@ -199,7 +217,8 @@ router.beforeEach(async (to) => {
 
   const allowedRoles = to.meta.roles as RoleName[] | undefined
   console.log('auth.currentRole:', auth.currentRole)
-console.log('allowedRoles:', allowedRoles)
+  console.log('allowedRoles:', allowedRoles)
+
   if (allowedRoles && !allowedRoles.includes(auth.currentRole as RoleName)) {
     return { name: 'forbidden' }
   }

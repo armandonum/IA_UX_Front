@@ -15,7 +15,7 @@
 
     <!-- Nivel de audio -->
     <div style="width: 100px">
-      <div class="text-caption text-grey-6 q-mb-xs">Nivel de audio</div>
+      <div class="text-caption text-grey-6 q-mb-xs">Nivel de audiSSo</div>
       <q-linear-progress
         :value="audioLevel / 100"
         :color="audioLevel > 50 ? 'positive' : 'grey-6'"

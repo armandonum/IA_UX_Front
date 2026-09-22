@@ -1,10 +1,8 @@
-<!-- components/experto/heuristic/HeuristicTaskList.vue -->
-
 <template>
   <q-dialog :model-value="show" persistent>
-    <q-card style="min-width: 550px; max-width: 90vw;">
+    <q-card style="min-width: 550px; max-width: 90vw">
       <q-card-section>
-        <div class="text-h6">Tareas del proyecto</div>
+        <div class="text-h6">Tareas de la Evaluación</div>
         <div class="text-caption text-grey-6">
           Selecciona una tarea para evaluar. Las tareas revisadas se marcarán como completadas.
         </div>
@@ -15,30 +13,58 @@
 
       <q-separator />
 
-      <q-card-section class="max-h-64 overflow-y-auto">
+      <q-card-section class="q-py-md" style="max-height: 60vh; overflow-y: auto">
+        <!-- Loading -->
         <div v-if="loadingTasks" class="text-center q-py-md">
           <q-spinner color="primary" size="32px" />
           <div class="text-caption text-grey-6 q-mt-sm">Cargando tareas...</div>
         </div>
 
-        <div v-else-if="tasks.length === 0" class="text-center text-grey-6 q-py-md">
-          Este proyecto no tiene tareas asignadas
+        <!-- Sin tareas -->
+        <div v-else-if="tasks.length === 0" class="text-center q-py-lg">
+          <q-icon name="inbox" size="48px" color="grey-5" />
+          <div class="text-grey-6 q-mt-sm">
+            Esta evaluación no tiene tareas asignadas
+          </div>
         </div>
 
-        <div
-          v-for="task in tasks"
-          :key="task.taskId"
-          class="q-px-sm q-py-xs rounded q-mb-xs border"
-          :class="[
-            task.reviewed ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-primary hover:bg-grey-1',
-            task.reviewed ? 'cursor-default' : 'cursor-pointer'
-          ]"
-          @click="task.reviewed ? null : seleccionarTarea(task)"
-        >
-          <div class="row items-center">
-            <div class="col">
-              <div class="row items-center q-gutter-sm">
-                <div class="text-sm text-weight-medium">{{ task.title || task.description }}</div>
+        <!-- Lista de tareas -->
+        <q-list v-else separator>
+          <q-item
+            v-for="task in sortedTasks"
+            :key="task.taskId"
+            clickable
+            :disable="task.reviewed"
+            :class="[
+              task.reviewed ? 'bg-green-1' : '',
+              task.inProgress ? 'bg-orange-1' : '',
+            ]"
+            @click="task.reviewed ? null : seleccionarTarea(task)"
+          >
+            <q-item-section avatar>
+              <q-avatar
+                :color="task.reviewed ? 'positive' : task.inProgress ? 'warning' : 'primary'"
+                text-color="white"
+                size="36px"
+              >
+                <q-icon
+                  :name="task.reviewed ? 'check' : task.inProgress ? 'play_arrow' : 'task'"
+                  size="20px"
+                />
+              </q-avatar>
+            </q-item-section>
+
+            <q-item-section>
+              <q-item-label class="text-weight-medium">
+                {{ task.title }}
+              </q-item-label>
+              <q-item-label v-if="task.description" caption>
+                {{ task.description }}
+              </q-item-label>
+            </q-item-section>
+
+            <q-item-section side>
+              <div class="row items-center q-gutter-xs">
                 <q-chip
                   v-if="task.reviewed"
                   color="positive"
@@ -46,7 +72,7 @@
                   size="sm"
                   icon="check_circle"
                 >
-                  Revisada
+                  Completada
                 </q-chip>
                 <q-chip
                   v-else-if="task.inProgress"
@@ -57,18 +83,16 @@
                 >
                   En evaluación
                 </q-chip>
+                <q-icon
+                  v-else
+                  name="arrow_forward"
+                  color="primary"
+                  size="20px"
+                />
               </div>
-              <div class="text-xs text-grey-6 q-mt-xs">{{ task.description }}</div>
-            </div>
-            <q-icon
-              v-if="!task.reviewed"
-              name="arrow_forward"
-              color="primary"
-              size="20px"
-              class="q-ml-sm"
-            />
-          </div>
-        </div>
+            </q-item-section>
+          </q-item>
+        </q-list>
       </q-card-section>
 
       <q-separator />
@@ -78,16 +102,11 @@
           v-if="tareasPendientes === 0 && sessionId"
           unelevated
           color="positive"
-          label="Finalizar evaluación"
           icon="check"
+          label="Finalizar evaluación"
           @click="$emit('finish-session')"
         />
-        <q-btn
-          v-else
-          flat
-          label="Cerrar"
-          @click="$emit('close')"
-        />
+        <q-btn flat label="Cerrar" @click="$emit('close')" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -95,9 +114,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Task } from '@/types/usability'
 
-interface TaskWithStatus extends Task {
+interface TaskWithStatus {
+  taskId: string
+  title: string
+  description: string
   reviewed: boolean
   inProgress: boolean
 }
@@ -115,12 +136,23 @@ const emit = defineEmits<{
   (e: 'finish-session'): void
 }>()
 
-const tareasPendientes = computed(() => {
-  return props.tasks.filter(t => !t.reviewed).length
-})
+const sortedTasks = computed(() => props.tasks)
+
+const tareasPendientes = computed(
+  () => props.tasks.filter(t => !t.reviewed).length,
+)
 
 function seleccionarTarea(task: TaskWithStatus) {
   if (task.reviewed) return
   emit('select-task', task)
 }
 </script>
+
+<style scoped>
+.bg-green-1 {
+  background-color: #e8f5e9 !important;
+}
+.bg-orange-1 {
+  background-color: #fff3e0 !important;
+}
+</style>

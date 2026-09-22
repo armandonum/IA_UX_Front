@@ -1,5 +1,3 @@
-<!-- components/experto/heuristic/HeuristicObservationCard.vue -->
-
 <template>
   <q-card class="q-mb-sm" :class="severityClass">
     <q-card-section class="q-pa-sm">
@@ -7,17 +5,18 @@
         <q-badge :color="severityColor" class="q-px-sm q-py-xs">
           {{ severityLabel }}
         </q-badge>
-        <q-badge color="grey-5" class="q-px-sm q-py-xs">
+        <q-badge color="grey-6" class="q-px-sm q-py-xs">
           {{ frequency }}
         </q-badge>
-        <q-chip size="sm" dense>
+        <q-chip size="sm" dense color="primary" text-color="white">
           {{ principleCode }}
         </q-chip>
         <q-space />
-        <q-btn dense flat size="sm" icon="delete" color="negative" @click="$emit('delete')" />
+        <q-btn dense flat round size="sm" icon="delete" color="negative" @click="$emit('delete')" />
       </div>
       <div class="text-caption q-mt-xs">{{ description }}</div>
-      <div class="text-[10px] text-grey-6 q-mt-xs">
+      <div class="text-caption text-grey-6 q-mt-xs">
+        <q-icon name="schedule" size="12px" />
         {{ formatTime(createdAt) }}
       </div>
     </q-card-section>
@@ -26,7 +25,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { SEVERITY_OPTIONS } from '@/data/heuristicPrinciples'
 
 const props = defineProps<{
   description: string
@@ -40,6 +38,17 @@ defineEmits<{
   (e: 'delete'): void
 }>()
 
+// ============================================================
+// OPCIONES DE SEVERIDAD (LOCALES, sin importar datos hardcodeados)
+// ============================================================
+const SEVERITY_OPTIONS = [
+  { value: 1, label: '1 - Leve', color: 'green' },
+  { value: 2, label: '2 - Menor', color: 'blue' },
+  { value: 3, label: '3 - Moderado', color: 'yellow' },
+  { value: 4, label: '4 - Grave', color: 'orange' },
+  { value: 5, label: '5 - Crítico', color: 'red' },
+] as const
+
 const severityLabel = computed(() => {
   const opt = SEVERITY_OPTIONS.find(s => s.value === props.severity)
   return opt?.label || `Nivel ${props.severity}`
@@ -51,17 +60,38 @@ const severityColor = computed(() => {
 })
 
 const severityClass = computed(() => {
-  const colors: Record<number, string> = {
-    1: 'border-l-4 border-l-green-500',
-    2: 'border-l-4 border-l-blue-500',
-    3: 'border-l-4 border-l-yellow-500',
-    4: 'border-l-4 border-l-orange-500',
-    5: 'border-l-4 border-l-red-500'
+  const classes: Record<number, string> = {
+    1: 'border-left-green',
+    2: 'border-left-blue',
+    3: 'border-left-yellow',
+    4: 'border-left-orange',
+    5: 'border-left-red',
   }
-  return colors[props.severity] || ''
+  return classes[props.severity] || ''
 })
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleTimeString('es-BO', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 </script>
+
+<style scoped>
+.border-left-green {
+  border-left: 4px solid #4caf50 !important;
+}
+.border-left-blue {
+  border-left: 4px solid #2196f3 !important;
+}
+.border-left-yellow {
+  border-left: 4px solid #ffc107 !important;
+}
+.border-left-orange {
+  border-left: 4px solid #ff9800 !important;
+}
+.border-left-red {
+  border-left: 4px solid #f44336 !important;
+}
+</style>

@@ -1,8 +1,6 @@
-<!-- components/experto/heuristic/HeuristicConsentModal.vue -->
-
 <template>
   <q-dialog :model-value="show" persistent>
-    <q-card>
+    <q-card style="min-width: 500px; max-width: 90vw">
       <q-card-section>
         <div class="text-overline text-primary">Evaluación Heurística</div>
         <div class="text-h5 text-weight-bold q-mt-sm">
@@ -16,7 +14,7 @@
         </div>
       </q-card-section>
 
-      <q-separator dark />
+      <q-separator />
 
       <q-card-section>
         <q-checkbox
@@ -33,7 +31,9 @@
         </q-banner>
       </q-card-section>
 
-      <q-card-actions align="right">
+      <q-separator />
+
+      <q-card-actions align="right" class="q-pa-md">
         <q-btn
           color="primary"
           unelevated
@@ -60,4 +60,4 @@ defineEmits<{
   (e: 'update:checked', value: boolean): void
   (e: 'continuar'): void
 }>()
-</script>   
+</script>

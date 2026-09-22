@@ -1,16 +1,14 @@
-<!-- components/experto/heuristic/HeuristicStatusBar.vue -->
-
 <template>
   <q-card
     dark
     class="absolute-top bg-dark"
     style="
-      left:50%;
-      transform:translateX(-50%);
-      margin-top:18px;
-      border-radius:14px;
-      z-index:50;
-      max-width:90%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: 18px;
+      border-radius: 14px;
+      z-index: 50;
+      max-width: 90%;
     "
   >
     <q-card-section horizontal class="items-center q-gutter-sm q-px-md q-py-sm">
@@ -26,8 +24,8 @@
 
       <q-separator vertical inset />
 
-      <q-chip color="info" text-color="white" size="sm">
-        📋 {{ principioActual }}
+      <q-chip color="info" text-color="white" size="sm" icon="task">
+        {{ tareaActual || '—' }}
       </q-chip>
 
       <q-separator vertical inset />
@@ -49,7 +47,7 @@ defineProps<{
   tiempo: string
   emocionEmoji: string
   emocionLabel: string
-  principioActual: string
+  tareaActual: string
 }>()
 
 defineEmits<{

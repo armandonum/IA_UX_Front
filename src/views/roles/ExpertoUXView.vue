@@ -1,4 +1,4 @@
-<!-- ExpertoUXView - Sin fondo principal, solo colores Quasar -->
+<!-- ExpertoUXView -->
 <template>
   <div class="q-pa-md q-gutter-y-md">
     <!-- Tarjeta sin fondo oscuro -->

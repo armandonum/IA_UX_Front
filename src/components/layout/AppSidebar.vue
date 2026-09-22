@@ -123,6 +123,12 @@ const allNavItems: NavItem[] = [
 
 
   { to: '/Coordinador', icon: 'assignment', label: 'Método Cognitivo', roles: ['Coordinador', 'Administrador'] },
+  { 
+  to: '/coordinador/heuristico', 
+  icon: 'fact_check', 
+  label: 'Método Heurístico', 
+  roles: ['Coordinador', 'Administrador'] 
+},  
   
     
   { to: '/docente', icon: 'school', label: 'Mi Clase', roles: ['Docente', 'Administrador'] },

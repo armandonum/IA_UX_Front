@@ -1214,3 +1214,307 @@ ADD COLUMN created_by UUID  NULL;
 
 
 
+
+---------------------------
+-- HEURISTIC
+---------------------
+CREATE TABLE usability.heuristic_frameworks (
+    framework_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL, -- 'Nielsen', 'Shneiderman', 'Gerhardt-Powals'
+    description TEXT,
+    author VARCHAR(100), -- 'Jakob Nielsen', 'Ben Shneiderman'
+    year INTEGER, -- 1994, 1995, etc.
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insertar frameworks conocidos
+INSERT INTO usability.heuristic_frameworks (name, description, author, year) VALUES
+('Nielsen', 'Las 10 heurísticas de usabilidad de Jakob Nielsen', 'Jakob Nielsen', 1994),
+('Shneiderman', 'Las 8 reglas de oro de Shneiderman para el diseño de interfaces', 'Ben Shneiderman', 1987),
+('Gerhardt-Powals', 'Principios de diseño cognitivo de Gerhardt-Powals', 'Jill Gerhardt-Powals', 1996),
+('Nielsen (Revisado)', 'Heurísticas actualizadas de Nielsen para diseño moderno', 'Jakob Nielsen', 2020);
+
+CREATE TABLE usability.heuristic_principles (
+    principle_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    framework_id UUID NOT NULL REFERENCES usability.heuristic_frameworks(framework_id) ON DELETE CASCADE,
+    code VARCHAR(10) NOT NULL, -- 'H1', 'H2', 'R1', etc.
+    name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    order_index INTEGER NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT uq_principle_code UNIQUE (framework_id, code)
+);
+
+-- Insertar heurísticas de Nielsen
+INSERT INTO usability.heuristic_principles (framework_id, code, name, description, order_index)
+SELECT framework_id, 'H1', 'Visibilidad del estado del sistema', 'El sistema debe mantener informados a los usuarios sobre lo que está sucediendo.', 1
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H2', 'Relación con el mundo real', 'El sistema debe hablar el lenguaje del usuario.', 2
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H3', 'Control y libertad del usuario', 'Los usuarios deben tener control sobre el sistema.', 3
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H4', 'Consistencia y estándares', 'El sistema debe ser coherente en su diseño.', 4
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H5', 'Prevención de errores', 'Un buen diseño debe prevenir errores.', 5
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H6', 'Reconocer antes que recordar', 'Minimizar la carga de memoria del usuario.', 6
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H7', 'Flexibilidad y eficiencia de uso', 'Permitir a usuarios novatos y expertos trabajar eficientemente.', 7
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H8', 'Diseño estético y minimalista', 'La interfaz no debe contener información irrelevante.', 8
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H9', 'Ayuda para recuperarse de errores', 'Los mensajes de error deben ser claros.', 9
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen'
+UNION ALL
+SELECT framework_id, 'H10', 'Ayuda y documentación', 'La ayuda debe ser fácil de encontrar.', 10
+FROM usability.heuristic_frameworks WHERE name = 'Nielsen';
+
+-- Insertar heurísticas de Shneiderman
+INSERT INTO usability.heuristic_principles (framework_id, code, name, description, order_index)
+SELECT framework_id, 'R1', 'Consistencia', 'Las acciones consistentes deben producir resultados consistentes.', 1
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R2', 'Atajos para usuarios frecuentes', 'Proporcionar atajos para acelerar la interacción de usuarios expertos.', 2
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R3', 'Retroalimentación informativa', 'Cada acción debe tener retroalimentación inmediata.', 3
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R4', 'Diálogos con cierre', 'Las secuencias de acciones deben tener un principio, medio y fin claros.', 4
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R5', 'Prevención de errores', 'Diseñar para prevenir errores antes de que ocurran.', 5
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R6', 'Permitir deshacer', 'Las acciones deben ser reversibles fácilmente.', 6
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R7', 'Control interno', 'El usuario debe tener control sobre el sistema.', 7
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman'
+UNION ALL
+SELECT framework_id, 'R8', 'Reducir carga de memoria', 'Minimizar la información que el usuario debe recordar.', 8
+FROM usability.heuristic_frameworks WHERE name = 'Shneiderman';
+
+
+---Registra las evaluaciones heurísticas creadas por un supervisor.
+
+CREATE TABLE usability.heuristic_evaluations (
+    evaluation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES usability.figma_projects(project_id) ON DELETE CASCADE,
+    framework_id UUID NOT NULL REFERENCES usability.heuristic_frameworks(framework_id),
+    supervisor_id UUID NOT NULL REFERENCES auth.users(user_id),
+    name VARCHAR(255) NOT NULL, -- "Evaluación Heurística - Nielsen"
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'draft', -- draft, planning, in_progress, completed, archived
+    system_description TEXT, -- "Aplicación de turismo en Sucre"
+    target_user_description TEXT, -- "Turistas nacionales y extranjeros"
+    max_duration_minutes INTEGER DEFAULT 20,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_heuristic_eval_project FOREIGN KEY (project_id) 
+        REFERENCES usability.figma_projects(project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_eval_framework FOREIGN KEY (framework_id) 
+        REFERENCES usability.heuristic_frameworks(framework_id)
+);
+
+
+
+
+
+---Asigna los evaluadores expertos a una evaluación.
+
+CREATE TABLE usability.heuristic_evaluators (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evaluation_id UUID NOT NULL REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(user_id),
+    role VARCHAR(50) DEFAULT 'evaluator', -- supervisor, evaluator, observer
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT uq_heuristic_evaluator UNIQUE (evaluation_id, user_id),
+    CONSTRAINT fk_heuristic_evaluator_user FOREIGN KEY (user_id) 
+        REFERENCES auth.users(user_id)
+);
+
+-- Índices
+CREATE INDEX idx_heuristic_evaluators_evaluation ON usability.heuristic_evaluators(evaluation_id);
+CREATE INDEX idx_heuristic_evaluators_user ON usability.heuristic_evaluators(user_id);
+
+
+Asigna tareas específicas a la evaluación heurística.
+
+---Asigna tareas específicas a la evaluación heurística.
+
+
+CREATE TABLE usability.heuristic_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evaluation_id UUID NOT NULL REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    project_task_id UUID REFERENCES usability.tasks(task_id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    user_goal TEXT,
+    order_index INTEGER NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending', -- pending, in_progress, completed, failed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_heuristic_task_evaluation FOREIGN KEY (evaluation_id) 
+        REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE
+);
+
+-- Índices
+CREATE INDEX idx_heuristic_tasks_evaluation ON usability.heuristic_tasks(evaluation_id);
+
+
+
+
+
+
+---Almacena las observaciones de los evaluadores sobre problemas heurísticos.
+
+
+
+CREATE TABLE usability.heuristic_observations (
+    observation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    evaluation_id UUID NOT NULL REFERENCES usability.cognitive_evaluations(cognitive_evaluations_id) ON DELETE CASCADE,
+    evaluator_id UUID NOT NULL REFERENCES auth.users(user_id),
+    task_id UUID REFERENCES usability.tasks(task_id),
+    
+    -- Datos de la observación
+    principle_id VARCHAR(10) NOT NULL, -- 'H1', 'H2', etc.
+    description TEXT NOT NULL,
+    severity SMALLINT NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    frequency VARCHAR(20) NOT NULL, -- 'Siempre', 'Frecuentemente', etc.
+    recommendation TEXT,
+    
+    -- Metadatos
+    node_id VARCHAR(255),
+    screen_identifier VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Índices
+    CONSTRAINT fk_heuristic_obs_session FOREIGN KEY (session_id) 
+        REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_obs_evaluation FOREIGN KEY (evaluation_id) 
+        REFERENCES usability.cognitive_evaluations(cognitive_evaluations_id) ON DELETE CASCADE
+);
+
+-- Índices para consultas rápidas
+CREATE INDEX idx_heuristic_obs_session ON usability.heuristic_observations(session_id);
+CREATE INDEX idx_heuristic_obs_evaluation ON usability.heuristic_observations(evaluation_id);
+CREATE INDEX idx_heuristic_obs_principle ON usability.heuristic_observations(principle_id);
+
+
+-- Almacena los elementos positivos identificados.
+
+
+
+CREATE TABLE usability.heuristic_positive_aspects (
+    aspect_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    evaluation_id UUID NOT NULL REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    evaluator_id UUID NOT NULL REFERENCES auth.users(user_id),
+    task_id UUID REFERENCES usability.heuristic_tasks(id) ON DELETE SET NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_heuristic_aspect_session FOREIGN KEY (session_id) 
+        REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_aspect_evaluation FOREIGN KEY (evaluation_id) 
+        REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_aspect_evaluator FOREIGN KEY (evaluator_id) 
+        REFERENCES auth.users(user_id)
+);
+
+-- Índices
+CREATE INDEX idx_heuristic_aspect_session ON usability.heuristic_positive_aspects(session_id);
+CREATE INDEX idx_heuristic_aspect_evaluation ON usability.heuristic_positive_aspects(evaluation_id);
+
+
+---CREATE TABLE usability.heuristic_ratings (
+
+
+CREATE TABLE usability.heuristic_ratings (
+    rating_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evaluation_id UUID NOT NULL REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    evaluator_id UUID NOT NULL REFERENCES auth.users(user_id),
+    problem_id UUID NOT NULL REFERENCES usability.heuristic_observations(observation_id),
+    severity SMALLINT NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    frequency SMALLINT NOT NULL CHECK (frequency BETWEEN 1 AND 10),
+    criticality SMALLINT GENERATED ALWAYS AS (severity + frequency) STORED,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_heuristic_rating_evaluation FOREIGN KEY (evaluation_id) 
+        REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_rating_session FOREIGN KEY (session_id) 
+        REFERENCES usability.usability_sessions(session_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heuristic_rating_evaluator FOREIGN KEY (evaluator_id) 
+        REFERENCES auth.users(user_id),
+    CONSTRAINT fk_heuristic_rating_observation FOREIGN KEY (problem_id) 
+        REFERENCES usability.heuristic_observations(observation_id) ON DELETE CASCADE,
+    CONSTRAINT uq_heuristic_rating UNIQUE (evaluation_id, evaluator_id, problem_id)
+);
+
+-- Índices
+CREATE INDEX idx_heuristic_rating_evaluation ON usability.heuristic_ratings(evaluation_id);
+CREATE INDEX idx_heuristic_rating_session ON usability.heuristic_ratings(session_id);
+CREATE INDEX idx_heuristic_rating_evaluator ON usability.heuristic_ratings(evaluator_id);
+
+
+
+
+--- Almacena los resultados finales consolidados.
+
+
+CREATE TABLE usability.heuristic_final_results (
+    result_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evaluation_id UUID NOT NULL REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    
+    total_problems INTEGER DEFAULT 0,
+    total_positive_aspects INTEGER DEFAULT 0,
+    total_evaluators INTEGER DEFAULT 0,
+    completed_evaluators INTEGER DEFAULT 0,
+    
+    ranking_json JSONB,
+    critical_problems JSONB,
+    recommendations JSONB,
+    
+    avg_severity DECIMAL(3,1),
+    avg_frequency DECIMAL(3,1),
+    avg_criticality DECIMAL(4,1),
+    
+    status VARCHAR(50) DEFAULT 'pending',
+    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_heuristic_result_evaluation FOREIGN KEY (evaluation_id) 
+        REFERENCES usability.heuristic_evaluations(evaluation_id) ON DELETE CASCADE,
+    CONSTRAINT uq_heuristic_result UNIQUE (evaluation_id)
+);
+
+-- Índices
+CREATE INDEX idx_heuristic_result_evaluation ON usability.heuristic_final_results(evaluation_id);
+
