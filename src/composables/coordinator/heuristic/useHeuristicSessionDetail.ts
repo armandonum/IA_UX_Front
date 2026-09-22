@@ -185,7 +185,7 @@ export function useHeuristicSessionDetail() {
   // ============================================================
   // COMPUTED — URLs de video
   // ============================================================
-  const API_BASE_URL = 'http://localhost:3000'
+  const API_BASE_URL = import.meta.env.VITE_STORAGE_URL  ||'http://localhost:3000'
   const STATIC_BASE_URL = `${API_BASE_URL}/storage/`
 
   const screenVideoUrl = computed(() => {

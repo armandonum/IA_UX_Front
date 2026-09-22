@@ -1,5 +1,6 @@
 // utils/figmaNodeUtils.ts
 
+const BASE_STORAGE_URL = import.meta.env.VITE_STORAGE_URL ?? '/'
 export interface FigmaNode {
   id: string
   name: string
@@ -84,7 +85,7 @@ export function getNodePath(node: FigmaNode, targetId: string): string[] {
  */
 export async function loadFigmaJson(fileKey: string): Promise<FigmaDocument | null> {
   try {
-    const response = await fetch(`http://localhost:3000/storage/figma/fig_${fileKey}.json`)
+    const response = await fetch(`${BASE_STORAGE_URL}storage/figma/fig_${fileKey}.json`)
     if (!response.ok) {
       console.warn(`No se pudo cargar el JSON de Figma: ${fileKey}`)
       return null

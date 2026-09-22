@@ -570,7 +570,7 @@ async function eliminarComentario(commentId: string) {
 
   try {
     await fetch(
-      `http://localhost:3000/api/session-comments/${commentId}`,
+      `${import.meta.env.VITE_API_URL}/session-comments/${commentId}`,
       { method: 'DELETE' },
     )
     comments.value = comments.value.filter(c => c.commentId !== commentId)

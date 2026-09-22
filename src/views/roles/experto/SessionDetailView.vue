@@ -337,8 +337,10 @@
   const router = useRouter();
   const sessionId = route.params.sessionId as string;
 
-  const API_BASE_URL = "http://localhost:3000";
-  const STATIC_BASE_URL = `${API_BASE_URL}/storage/`;
+  const API_BASE_URL = import.meta.env.VITE_API_URL
+  const STATIC_BASE_URL = `${import.meta.env.VITE_STORAGE_URL}storage/`;
+
+ 
 
   const speedOptions = [0.5, 1, 1.5, 2];
 
@@ -388,7 +390,7 @@
   function buildVideoUrl(key: string | null | undefined) {
     if (!key) return null;
     const clean = key.replace(/^\/+/, "");
-    return `${STATIC_BASE_URL}/${clean}`;
+    return `${STATIC_BASE_URL}${clean}`;
   }
   // ============================================================
   // ✅ COMPUTED PARA TIMELINE DATA (AGREGAR ESTO)
@@ -507,7 +509,7 @@
   // ============================================================
   async function handleCreateFinding(data: any) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/findings`, {
+      const response = await fetch(`${API_BASE_URL}/findings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -541,7 +543,7 @@
     loading.value = true;
     loadError.value = null;
     try {
-      const sessionRes = await fetch(`${API_BASE_URL}/api/usability-sessions/${sessionId}`);
+      const sessionRes = await fetch(`${API_BASE_URL}/usability-sessions/${sessionId}`);
       if (!sessionRes.ok) throw new Error(`No se pudo cargar la sesión (HTTP ${sessionRes.status})`);
       session.value = await sessionRes.json();
 
@@ -550,9 +552,9 @@
       }
 
       const [eventsRes, emotionsRes, commentsRes, sentimentsRes, expertCommentsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/usability-events/session/${sessionId}`),
-        fetch(`${API_BASE_URL}/api/emotion-readings/session/${sessionId}`),
-        fetch(`${API_BASE_URL}/api/session-comments/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}/usability-events/session/${sessionId}`),
+        fetch(`${API_BASE_URL}/emotion-readings/session/${sessionId}`),
+        fetch(`${API_BASE_URL}/session-comments/session/${sessionId}`).catch(() => null),
         textSentimentsApi.getBySession(sessionId).catch(() => ({ data: [] })),
         commentExpertsApi.getBySession(sessionId).catch(() => ({ data: [] })),
       ]);
@@ -695,7 +697,7 @@
 
     comments.value = comments.value.filter((c) => c.commentId !== commentId);
     try {
-      await fetch(`${API_BASE_URL}/api/session-comments/${commentId}`, { method: "DELETE" });
+      await fetch(`${API_BASE_URL}/session-comments/${commentId}`, { method: "DELETE" });
       $q.notify({ type: "positive", message: "Comentario eliminado" });
     } catch (err) {
       console.error("No se pudo borrar el comentario en el servidor:", err);

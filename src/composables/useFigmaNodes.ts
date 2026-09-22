@@ -14,6 +14,7 @@ export function useFigmaNodes() {
   const nodeCache = ref<Map<string, { name: string; type: string; componentId?: string }>>(new Map())
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const BASE_STORAGE_URL = import.meta.env.VITE_STORAGE_URL 
 
   async function loadFigmaNodes(fileKey: string) {
     if (!fileKey) return
@@ -22,7 +23,7 @@ export function useFigmaNodes() {
     error.value = null
     
     try {
-      const url = `http://localhost:3000/storage/figma/fig_${fileKey}.json`
+      const url = `${BASE_STORAGE_URL}storage/figma/fig_${fileKey}.json`
       console.log('📥 Cargando nodos desde:', url)
       
       const response = await fetch(url)

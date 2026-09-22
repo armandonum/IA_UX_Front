@@ -8,7 +8,7 @@ export const useFindingsExport = () => {
   const $q = useQuasar();
   const isExporting = ref(false);
   const progress = ref(0);
-
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
   // ✅ Usar el composable de FigmaNodes
   const { getNodeName, getNodeType, loadFigmaNodes, nodeCache } =
     useFigmaNodes();
@@ -162,7 +162,7 @@ export const useFindingsExport = () => {
     try {
       // Obtener el comentario del usuario
       const response = await fetch(
-        `http://localhost:3000/api/session-comments/${userCommentId}`,
+        `${BASE_URL}/session-comments/${userCommentId}`,
       );
       if (!response.ok) return "—";
 
@@ -171,7 +171,7 @@ export const useFindingsExport = () => {
 
       // Obtener el usuario
       const userResponse = await fetch(
-        `http://localhost:3000/api/users/${comment.authorId}`,
+        `${BASE_URL}/users/${comment.authorId}`,
       );
       if (!userResponse.ok) return "—";
 

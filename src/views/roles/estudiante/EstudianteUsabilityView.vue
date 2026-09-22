@@ -138,7 +138,7 @@
   const route = useRoute()
   const router = useRouter()
   const figmaSession = useFigmaSessionStore()
-
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
   // ============================================================
   // CONFIGURACIÓN
   // ============================================================
@@ -709,7 +709,7 @@
         authorId: auth.user?.user_id || null,
       }
 
-      await fetch('http://localhost:3000/api/text-sentiments', {
+      await fetch('${BASE_URL}/text-sentiments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1055,7 +1055,7 @@
       }
 
       // Enviar al backend
-      const response = await fetch('http://localhost:3000/api/session-comments', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/session-comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

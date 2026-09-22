@@ -139,6 +139,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 
+
 interface Props {
   type: "pretest" | "posttest";
   userId: string | null | undefined;
@@ -147,7 +148,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  apiBaseUrl: "http://localhost:3000",
+  apiBaseUrl: () => import.meta.env.VITE_API_URL ?? '',
 });
 
 const emit = defineEmits<{
@@ -184,7 +185,7 @@ async function cargar() {
   loading.value = true;
   try {
     const questionnaires = await fetchJson(
-      `${props.apiBaseUrl}/api/questionnaires/project/${props.projectId}`,
+      `${props.apiBaseUrl}/questionnaires/project/${props.projectId}`,
     );
     if (!questionnaires) return;
 
@@ -194,7 +195,7 @@ async function cargar() {
     const questionnaireId = questionnaire.questionnaireId || questionnaire.questionnaire_id;
 
     const allResponses = await fetchJson(
-      `${props.apiBaseUrl}/api/questionnaire-responses/participant/${props.userId}`,
+      `${props.apiBaseUrl}/questionnaire-responses/participant/${props.userId}`,
     );
     if (!allResponses) return;
 
@@ -210,8 +211,8 @@ async function cargar() {
     const responseId = response.responseId || response.response_id;
 
     const [questions, answers] = await Promise.all([
-      fetchJson(`${props.apiBaseUrl}/api/questions/questionnaire/${questionnaireId}`),
-      fetchJson(`${props.apiBaseUrl}/api/question-answers/response/${responseId}`),
+      fetchJson(`${props.apiBaseUrl}/questions/questionnaire/${questionnaireId}`),
+      fetchJson(`${props.apiBaseUrl}/question-answers/response/${responseId}`),
     ]);
 
     const questionsMap: Record<string, any> = {};
@@ -253,7 +254,7 @@ async function procesarRespuesta(answer: any, questionsMap: Record<string, any>)
   if (questionType === "single_choice") {
     const optId = answer.selected_option_id || answer.selectedOptionId;
     if (optId) {
-      const opt = await fetchJson(`${props.apiBaseUrl}/api/question-options/${optId}`);
+      const opt = await fetchJson(`${props.apiBaseUrl}/question-options/${optId}`);
       if (opt) selectedOptionLabel = opt.label || opt.option_label || opt.optionLabel;
     }
   }
@@ -261,11 +262,11 @@ async function procesarRespuesta(answer: any, questionsMap: Record<string, any>)
   if (questionType === "multi_choice") {
     const answerId = answer.answer_id || answer.answerId;
     const options = await fetchJson(
-      `${props.apiBaseUrl}/api/question-answer-options/answer/${answerId}`,
+      `${props.apiBaseUrl}/question-answer-options/answer/${answerId}`,
     );
     for (const opt of options || []) {
       const optId = opt.option_id || opt.optionId;
-      const optData = await fetchJson(`${props.apiBaseUrl}/api/question-options/${optId}`);
+      const optData = await fetchJson(`${props.apiBaseUrl}/question-options/${optId}`);
       const label = optData?.label || optData?.option_label || optData?.optionLabel;
       if (label) selectedOptionLabels.push(label);
     }
