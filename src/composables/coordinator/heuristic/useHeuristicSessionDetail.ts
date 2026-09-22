@@ -186,7 +186,7 @@ export function useHeuristicSessionDetail() {
   // COMPUTED — URLs de video
   // ============================================================
   const API_BASE_URL = import.meta.env.VITE_STORAGE_URL  ||'http://localhost:3000'
-  const STATIC_BASE_URL = `${API_BASE_URL}/storage/`
+  const STATIC_BASE_URL = `${API_BASE_URL}storage/`
 
   const screenVideoUrl = computed(() => {
     if (!session.value) return null
@@ -222,7 +222,7 @@ export function useHeuristicSessionDetail() {
 
     try {
       // 1. Cargar sesión
-      const sessionRes = await fetch(`${API_BASE_URL}/api/usability-sessions/${sessionId}`)
+      const sessionRes = await fetch(`${API_BASE_URL}api/usability-sessions/${sessionId}`)
       if (!sessionRes.ok) {
         throw new Error(`No se pudo cargar la sesión (HTTP ${sessionRes.status})`)
       }
@@ -237,11 +237,11 @@ export function useHeuristicSessionDetail() {
         commentsRes,
         expertCommentsRes,
       ] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/usability-events/session/${sessionId}`).catch(() => null),
-        fetch(`${API_BASE_URL}/api/emotion-readings/session/${sessionId}`).catch(() => null),
-        fetch(`${API_BASE_URL}/api/text-sentiments/session/${sessionId}`).catch(() => null),
-        fetch(`${API_BASE_URL}/api/session-comments/session/${sessionId}`).catch(() => null),
-        fetch(`${API_BASE_URL}/api/comment-experts/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}api/usability-events/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}api/emotion-readings/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}api/text-sentiments/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}api/session-comments/session/${sessionId}`).catch(() => null),
+        fetch(`${API_BASE_URL}api/comment-experts/session/${sessionId}`).catch(() => null),
       ])
 
       // 3. Procesar eventos

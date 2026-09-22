@@ -369,7 +369,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
         fetchQuestionnaireMeta('posttest'),
       ])
 
-      const responsesRes = await fetch(`/api/questionnaire-responses/participant/${userId}`)
+      const responsesRes = await fetch(`${BASE_URL}/questionnaire-responses/participant/${userId}`)
       const responses = responsesRes.ok ? await responsesRes.json() : []
 
       pretestCompleted.value = pretestMeta
@@ -384,7 +384,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
           )
         : true
 
-      const sessionsRes = await fetch(`/api/usability-sessions`)
+      const sessionsRes = await fetch(`${BASE_URL}/usability-sessions`)
       const allSessions = sessionsRes.ok ? await sessionsRes.json() : []
 
       completedTaskIds.value = new Set<string>(
@@ -404,7 +404,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
   }
 
   async function fetchQuestionnaireMeta(tipo: 'pretest' | 'posttest') {
-    const res = await fetch(`/api/questionnaires/project/${projectId.value}/type/${tipo}`)
+    const res = await fetch(`${BASE_URL}/questionnaires/project/${projectId.value}/type/${tipo}`)
     if (!res.ok) return null
     return await res.json()
   }
@@ -421,7 +421,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
       }
 
       // 2. Obtener las preguntas del cuestionario
-      const questionsRes = await fetch(`/api/questions/questionnaire/${meta.questionnaireId}`)
+      const questionsRes = await fetch(`${BASE_URL}/questions/questionnaire/${meta.questionnaireId}`)
       if (!questionsRes.ok) {
         throw new Error('Error al cargar preguntas')
       }
@@ -447,10 +447,10 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
             }
           }
 
-          // 🔥 IMPORTANTE: Hacer la consulta a /api/question-options/question/:questionId
+          // 🔥 IMPORTANTE: Hacer la consulta a ${BASE_URL}/question-options/question/:questionId
           try {
             console.log(`🔍 Cargando opciones para pregunta: ${questionId}`)
-            const optionsRes = await fetch(`/api/question-options/question/${questionId}`, {
+            const optionsRes = await fetch(`${BASE_URL}/question-options/question/${questionId}`, {
               headers: {
                 'accept': '*/*'
               }
@@ -536,7 +536,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
     loadingTasks.value = true
     try {
       if (tasks.value.length === 0) {
-        const res = await fetch(`/api/tasks/projectId/${projectId.value}`)
+        const res = await fetch(`${BASE_URL}/tasks/projectId/${projectId.value}`)
         if (res.ok) {
           tasks.value = await res.json()
         }
@@ -582,7 +582,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
   ) {
     const participantId = auth.user?.user_id
 
-    const responseRes = await fetch('/api/questionnaire-responses', {
+    const responseRes = await fetch(`${BASE_URL}/questionnaire-responses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -597,7 +597,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 
     await Promise.all(
       answers.map(async (answer) => {
-        const answerRes = await fetch('/api/question-answers', {
+        const answerRes = await fetch(`${BASE_URL}/question-answers`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -617,7 +617,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
           const answerId = created.answerId ?? created.answer_id ?? created.id
           await Promise.all(
             answer.selectedOptionIds.map((optionId) =>
-              fetch('/api/question-answer-options', {
+              fetch(`${BASE_URL}/question-answer-options`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ answerId, optionId }),
@@ -709,7 +709,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
         authorId: auth.user?.user_id || null,
       }
 
-      await fetch('${BASE_URL}/text-sentiments', {
+        await fetch(`${BASE_URL}/text-sentiments`,{
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -723,7 +723,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
   // SESIÓN Y GRABACIÓN
   // ============================================================
   async function crearSesion() {
-    const res = await fetch('/api/usability-sessions', {
+    const res = await fetch(`${BASE_URL}/usability-sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -744,7 +744,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 
   async function cerrarSesion(status: 'completed' | 'abandoned') {
     if (!sessionId.value) return
-    await fetch(`/api/usability-sessions/${sessionId.value}/finish`, {
+    await fetch(`${BASE_URL}/usability-sessions/${sessionId.value}/finish`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
@@ -756,7 +756,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
     const tiempo = tiempoActual()
     eventosRegistrados.value++
 
-    fetch('/api/usability-events', {
+    fetch(`${BASE_URL}/usability-events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -784,7 +784,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
     lecturasEmocionRegistradas.value++
 
 
-    fetch('/api/emotion-readings', {
+    fetch(`${BASE_URL}/emotion-readings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -806,7 +806,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
     formData.append('video_type', tipo)
 
     try {
-      const response = await fetch('/api/usability-sessions/upload/video', {
+      const response = await fetch(`${BASE_URL}/usability-sessions/upload/video`, {
         method: 'POST',
         body: formData,
       })
@@ -1022,7 +1022,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
   function handleBeforeUnload() {
     if (status.value === 'running') {
       navigator.sendBeacon?.(
-        `/api/usability-sessions/${sessionId.value}`,
+        `${BASE_URL}/usability-sessions/${sessionId.value}`,
         JSON.stringify({ status: 'abandoned', duration_seconds: Math.floor(elapsedMs.value / 1000) })
       )
     }
