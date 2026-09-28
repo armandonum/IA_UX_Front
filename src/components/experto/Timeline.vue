@@ -99,45 +99,66 @@
         </div>
 
         <!-- Emociones -->
-        <div
-          v-for="(em, i) in emotionReadings"
-          :key="'em-' + i"
-          class="absolute bottom-1 cursor-pointer group"
-          style="z-index:5;"
-          :style="{ left: pct(getEmotionMs(em)) + '%' }"
-          @mouseenter="abrirTooltip('emotion', i)"
-          @mouseleave="cerrarTooltip('emotion', i)"
-        >
-          <div class="flex flex-col items-center">
-            <div 
-              class="rounded-full hover:scale-150 transition-transform"
-              style="width:8px;height:8px;background:#F59E0B;"
-            />
-            <span class="text-[6px] text-grey-6 mt-0.5 whitespace-nowrap">😊</span>
-          </div>
-          <!-- Tooltip flotante -->
-          <div 
-            v-if="expandedItems['emotion-' + i]"
-            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg border border-grey-3 p-2 w-48 z-20"
-            @click.stop
-            @mouseenter="cancelarCierre('emotion-' + i)"
-            @mouseleave="cerrarTooltip('emotion', i)"
-          >
-            <div class="text-xs font-semibold text-dark">{{ getEmotionLabel(em) }}</div>
-            <div class="text-[10px] text-grey-6">{{ formatTiempoS(getEmotionMs(em)) }}</div>
-            <div v-if="em.scoresJson" class="text-[10px] text-grey-6">
-              🎯 {{ sumScores(em.scoresJson) }}
-            </div>
-            <q-btn
-              dense
-              flat
-              size="sm"
-              label="Saltar"
-              class="q-mt-xs"
-              @click.stop="$emit('seek', getEmotionMs(em))"
-            />
-          </div>
-        </div>
+        <!-- Emociones (solo cambios significativos) -->
+<div
+  v-for="(em, i) in significantEmotions"
+  :key="'em-' + (em.readingId || i)"
+  class="absolute bottom-1 cursor-pointer group"
+  style="z-index:5;"
+  :style="{ left: pct(getEmotionMs(em)) + '%' }"
+  @mouseenter="abrirTooltip('emotion', em.readingId || i)"
+  @mouseleave="cerrarTooltip('emotion', em.readingId || i)"
+>
+  <div class="flex flex-col items-center">
+    <div
+      class="rounded-full hover:scale-150 transition-transform"
+      style="width:8px;height:8px;background:#F59E0B;"
+    />
+    <span class="text-[6px] text-grey-6 mt-0.5 whitespace-nowrap">
+      {{ getEmotionEmoji(em.dominantEmotion) }}
+    </span>
+  </div>
+
+  <div
+    v-if="expandedItems['emotion-' + (em.readingId || i)]"
+    class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg border border-grey-3 p-2 w-56 z-20"
+    @click.stop
+    @mouseenter="cancelarCierre('emotion-' + (em.readingId || i))"
+    @mouseleave="cerrarTooltip('emotion', em.readingId || i)"
+  >
+    <div class="text-xs font-semibold text-dark">
+      {{ getEmotionEmoji(em.dominantEmotion) }}
+      {{ getEmotionLabel(em.dominantEmotion) }}
+    </div>
+    <div class="text-[10px] text-grey-6">{{ formatTiempoS(getEmotionMs(em)) }}</div>
+
+    <!-- Scores completos -->
+    <div v-if="em.scoresJson" class="q-mt-xs">
+      <div class="text-[9px] text-grey-6 q-mb-xs">Todas las emociones:</div>
+      <div
+        v-for="(score, key) in em.scoresJson"
+        :key="key"
+        class="row items-center justify-between"
+        style="font-size:9px;"
+      >
+        <span>{{ getEmotionEmoji(key) }} {{ getEmotionLabel(key) }}</span>
+        <span class="text-weight-bold">{{ (score * 100).toFixed(0) }}%</span>
+      </div>
+    </div>
+
+    <div class="flex q-gutter-xs q-mt-xs">
+      <q-btn dense flat size="sm" label="Saltar" @click.stop="$emit('seek', getEmotionMs(em))" />
+      <q-btn
+        dense
+        flat
+        size="sm"
+        label="Hallazgo"
+        color="primary"
+        @click.stop="$emit('add-finding', em)"
+      />
+    </div>
+  </div>
+</div>
 
         <!-- Sentimientos -->
         <div
@@ -294,7 +315,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive,computed } from 'vue'
+import { getEmotionTemplate } from '@/types/expert/findings.dictionary'
+import { normalizeScore } from '@/types/expert/findings.dictionary';
 
 const props = defineProps<{
   durationMs: number
@@ -319,12 +342,88 @@ const emit = defineEmits<{
   (e: 'edit-comment', ms: number, comment: any): void
   (e: 'add-expert-comment', ms: number): void
   (e: 'edit-expert-comment', ms: number, comment: any): void
+  (e: 'add-finding', emotion: any): void 
 }>()
 
 // 🔥 Estado para elementos expandidos
 const expandedItems = reactive<Record<string, boolean>>({})
 const timeouts = reactive<Record<string, ReturnType<typeof setTimeout>>>({})
 
+
+/**
+ * Filtra emociones para evitar saturación:
+ * - Solo muestra cambios de emoción
+ * - Ignora cambios menores al threshold
+ * - Ignora emociones iguales muy cercanas en el tiempo (< 3s)
+ */
+const significantEmotions = computed(() => {
+  if (!props.emotionReadings?.length) return []
+
+  const MIN_TIME_BETWEEN_SAME = 3000 // 3 segundos
+  const CONFIDENCE_THRESHOLD = 0.5
+  const SCORE_CHANGE_THRESHOLD = 20 // %
+
+  const result: any[] = []
+  let lastKept: any = null
+  let lastKeptMs = -Infinity
+
+  for (const r of props.emotionReadings) {
+    const currentMs = r.elapsedMsTotal || 0
+    const current = (r.dominantEmotion || 'neutral').toLowerCase()
+
+    // Score normalizado de la emoción dominante
+    const currentScore = normalizeScore(r.scoresJson?.[r.dominantEmotion])
+
+    // Ignorar si tiene poca confianza (si existe el campo)
+    if (r.confidence !== undefined && r.confidence < CONFIDENCE_THRESHOLD) {
+      continue
+    }
+
+    if (!lastKept) {
+      result.push(r)
+      lastKept = r
+      lastKeptMs = currentMs
+      continue
+    }
+
+    const lastEmotion = (lastKept.dominantEmotion || 'neutral').toLowerCase()
+    const lastScore = normalizeScore(lastKept.scoresJson?.[lastKept.dominantEmotion])
+    const timeDiff = currentMs - lastKeptMs
+
+    // 1. Cambió la emoción → SIEMPRE mostrar
+    if (current !== lastEmotion) {
+      result.push(r)
+      lastKept = r
+      lastKeptMs = currentMs
+      continue
+    }
+
+    // 2. Misma emoción pero muy cerca en el tiempo → ignorar
+    if (timeDiff < MIN_TIME_BETWEEN_SAME) {
+      continue
+    }
+
+    // 3. Misma emoción con cambio significativo de intensidad → mostrar
+    if (Math.abs(currentScore - lastScore) >= SCORE_CHANGE_THRESHOLD) {
+      result.push(r)
+      lastKept = r
+      lastKeptMs = currentMs
+    }
+  }
+
+  return result
+})
+
+// Helper para emojis
+function getEmotionEmoji(emotion: string | null | undefined): string {
+  if (!emotion) return '😐'
+  return getEmotionTemplate(emotion).emoji
+}
+
+function getEmotionLabel(emotion: string | null | undefined): string {
+  if (!emotion) return 'Neutral'
+  return getEmotionTemplate(emotion).labelEs
+}
 function cerrarTodosTooltips() {
   for (const key in expandedItems) {
     expandedItems[key] = false

@@ -106,6 +106,12 @@
       @saved="onProjectSaved"
     />
 
+    <!-- 🔥 Panel de detalles del proyecto (requerimientos + tareas) -->
+    <ProjectDetailsPanel
+      v-model="detailsPanelOpen"
+      :project="selectedProjectForDetails"
+    />
+
   </q-page>
 </template>
 
@@ -119,7 +125,10 @@ import { useAuthStore } from '@/stores/auth.store'
 import ProjectList from '@/components/coordinator/projects/ProjectList.vue'
 import ProjectForm from '@/components/coordinator/projects/ProjectForm.vue'
 import FigmaTokenManager from '@/components/coordinator/projects/FigmaTokenManager.vue'
+import ProjectDetailsPanel from '@/components/coordinator/projects/ProjectDetailsPanel.vue'  
+
 import type { FigmaProject } from '@/types/coordinator/projects.types'
+
 
 const $q = useQuasar()
 const router = useRouter()
@@ -132,6 +141,8 @@ const search = ref('')
 const filterStatus = ref<string | null>(null)
 const dialogOpen = ref(false)
 const editingProject = ref<FigmaProject | null>(null)
+const detailsPanelOpen = ref(false)           // 🔥 NUEVO
+const selectedProjectForDetails = ref<FigmaProject | null>(null)  // 🔥 NUEVO
 const tokenManagerRef = ref<InstanceType<typeof FigmaTokenManager> | null>(null)
 const hasToken = ref(false)
 
@@ -222,7 +233,8 @@ const openEditDialog = (project: FigmaProject) => {
 }
 
 const viewProject = (project: FigmaProject) => {
-  router.push(`/proyectos/${project.projectId}`)
+  selectedProjectForDetails.value = project
+  detailsPanelOpen.value = true
 }
 
 const confirmDelete = (project: FigmaProject) => {

@@ -1,4 +1,4 @@
-// types/findings.types.ts
+// types/expert/findings.types.ts
 
 export interface Finding {
   findingId: string
@@ -9,14 +9,14 @@ export interface Finding {
   flowId?: string
   nodeId?: string
   version?: string
-  type: 'usability' | 'emotional' | 'sentiment' | 'expert' | 'mixed'
+  type: 'usability' | 'emotional' | 'sentiment' | 'expert' | 'mixed' | 'problem' | 'difficulty' | 'accessibility' | 'friction' | 'positive' | 'opportunity'
   description: string
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
   frequency: number
   impact: 'high' | 'medium' | 'low'
   priority: 'high' | 'medium' | 'low'
   recommendation?: string
-  status: 'pending' | 'reviewed' | 'approved' | 'rejected'
+  status: 'pending' | 'in_progress' | 'resolved' | 'not_resolved' | 'kept' | 'reviewed' | 'approved' | 'rejected'
   emotionInferred?: string
   textualSentiment?: string
   userComment?: string
@@ -29,7 +29,8 @@ export interface Finding {
   updatedAt: string
 }
 
-export interface GeneratedFinding extends Omit<Finding, 'findingId' | 'createdAt' | 'updatedAt'> {
+export interface GeneratedFinding
+  extends Omit<Finding, 'findingId' | 'createdAt' | 'updatedAt'> {
   _tempId: string
   source: 'emotion' | 'sentiment' | 'user_comment' | 'expert_comment' | 'mixed'
   confidence: number
@@ -43,9 +44,10 @@ export interface GeneratedFinding extends Omit<Finding, 'findingId' | 'createdAt
 export interface FindingGenerationConfig {
   minConfidence: number
   minFrequency: number
-  maxTimeGap: number // ms entre eventos para agrupar
+  maxTimeGap: number
   includeEmotions: boolean
   includeSentiments: boolean
   includeUserComments: boolean
   includeExpertComments: boolean
+  emotionChangeThreshold: number
 }

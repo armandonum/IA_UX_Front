@@ -214,7 +214,10 @@
     :key="evaluation.evaluationId"
     class="col-12 col-md-6 col-lg-4"
   >
-    <q-card class="h-full">
+    <q-card
+      class="h-full cursor-pointer evaluation-card"
+      @click="goToDetailDirect(evaluation)"
+    >
       <q-card-section>
         <div class="row items-center justify-between q-mb-sm">
           <div class="text-subtitle1 text-weight-medium ellipsis">
@@ -242,21 +245,37 @@
         </div>
       </q-card-section>
 
-      <q-card-actions align="right">
-        <q-btn
-          flat
-          color="primary"
-          label="Gestionar"
-          icon="settings"
-          @click.stop="openEvaluation(evaluation)"
-        />
+      <q-separator />
+
+      <q-card-actions class="q-pa-sm">
         <q-btn
           unelevated
           color="primary"
           label="Ver Detalle"
           icon="open_in_new"
+          class="col"
           @click.stop="goToDetailDirect(evaluation)"
         />
+
+        <q-btn
+          flat
+          dense
+          icon="edit"
+          color="primary"
+          @click.stop="openEvaluationAndEdit(evaluation)"
+        >
+          <q-tooltip>Editar evaluación</q-tooltip>
+        </q-btn>
+
+        <q-btn
+          flat
+          dense
+          icon="delete"
+          color="negative"
+          @click.stop="confirmDeleteEvaluationFromList(evaluation)"
+        >
+          <q-tooltip>Eliminar evaluación</q-tooltip>
+        </q-btn>
       </q-card-actions>
     </q-card>
   </div>
@@ -390,7 +409,7 @@
     <!-- ============================================================ -->
     <!-- DIALOG: CREAR EVALUACIÓN                                      -->
     <!-- ============================================================ -->
-    <q-dialog v-model="showCreateDialog" persistent>
+      <q-dialog v-model="showCreateDialog">
       <q-card style="min-width: 600px; max-width: 90vw">
         <q-card-section>
           <div class="text-h6">Nueva Evaluación Heurística</div>
@@ -496,7 +515,7 @@
     <!-- ============================================================ -->
     <!-- DIALOG: EDITAR EVALUACIÓN                                     -->
     <!-- ============================================================ -->
-    <q-dialog v-model="showEditDialog" persistent>
+    <q-dialog v-model="showEditDialog">
       <q-card style="min-width: 600px; max-width: 90vw">
         <q-card-section>
           <div class="text-h6">Editar Evaluación</div>
@@ -727,6 +746,32 @@ async function openEvaluation(evaluation: HeuristicEvaluation) {
   await loadEvaluation(evaluation.evaluationId)
 }
 
+// 🔥 NUEVA: Eliminar desde la lista (sin cargar la evaluación)
+async function confirmDeleteEvaluationFromList(evaluation: HeuristicEvaluation) {
+  $q.dialog({
+    title: 'Eliminar Evaluación',
+    message: `¿Estás seguro de eliminar "${evaluation.name}"? Esta acción no se puede deshacer.`,
+    ok: { label: 'Eliminar', color: 'negative' },
+    cancel: true,
+    persistent: true,
+  }).onOk(async () => {
+    try {
+      await deleteEvaluation(evaluation.evaluationId)
+      if (selectedProjectId.value) {
+        await loadEvaluationsByProject(selectedProjectId.value)
+      }
+      $q.notify({ type: 'positive', message: 'Evaluación eliminada' })
+    } catch (e) {
+      $q.notify({ type: 'negative', message: 'Error al eliminar' })
+    }
+  })
+}
+
+// 🔥 NUEVA: Editar desde la lista
+async function openEvaluationAndEdit(evaluation: HeuristicEvaluation) {
+  await openEvaluation(evaluation)
+  openEditDialog()
+}
 function goToDetail() {
   if (currentEvaluation.value) {
     router.push({

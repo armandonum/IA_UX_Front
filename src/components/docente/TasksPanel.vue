@@ -6,7 +6,6 @@
 
     <!-- ================= FILTROS ================= -->
     <div class="row q-col-gutter-md q-mb-lg">
-      <!-- Mostrar semestre actual -->
       <div class="col-12 col-md-3" v-if="semesterId">
         <div class="text-caption text-grey-6 q-mt-sm">
           <q-icon name="calendar_month" size="16px" class="q-mr-xs" />
@@ -25,6 +24,7 @@
           label="Proyecto (opcional)"
           emit-value
           map-options
+          clearable
           :loading="loadingProjects"
           :disable="!semesterId"
           @update:model-value="onProjectChange"
@@ -57,7 +57,6 @@
         />
       </div>
 
-      <!-- Indicador de cantidad -->
       <div class="col-12 col-md-2 flex items-center justify-end">
         <q-badge color="primary" class="q-px-md q-py-sm">
           {{ filteredRequirements.length }} requerimientos
@@ -83,7 +82,6 @@
         <div class="row items-center justify-between q-mb-sm">
           <div>
             <div class="text-subtitle1 text-weight-medium">Requerimientos</div>
-
             <div class="text-caption text-grey-6">
               <q-icon
                 :name="isGlobalView ? 'public' : 'folder_open'"
@@ -187,7 +185,7 @@
         </q-list>
       </div>
 
-      <!-- ================= COLUMNA DERECHA: TAREAS DEL REQUERIMIENTO SELECCIONADO ================= -->
+      <!-- ================= COLUMNA DERECHA: TAREAS ================= -->
       <div class="col-12 col-md-7">
         <template v-if="selectedRequirement">
           <div class="row items-center justify-between q-mb-sm">
@@ -206,9 +204,45 @@
               color="primary"
               icon="add"
               label="Nueva tarea"
+              :disable="!canCreateTask"
               @click="openTaskDialog(null)"
-            />
+            >
+              <q-tooltip v-if="!canCreateTask">
+                Selecciona un proyecto primero para crear tareas en requerimientos globales
+              </q-tooltip>
+            </q-btn>
           </div>
+
+          <!-- Banner informativo según el contexto -->
+          <q-banner
+            v-if="selectedRequirement.semesterId && !selectedProject"
+            dense
+            rounded
+            class="bg-warning text-white q-mb-sm"
+          >
+            <template #avatar>
+              <q-icon name="info" />
+            </template>
+            <div class="text-caption">
+              <strong>Requerimiento global:</strong> Para crear tareas, primero selecciona
+              un proyecto en el filtro superior.
+            </div>
+          </q-banner>
+
+          <q-banner
+            v-else-if="selectedRequirement.semesterId && selectedProject"
+            dense
+            rounded
+            class="bg-blue-1 text-primary q-mb-sm"
+          >
+            <template #avatar>
+              <q-icon name="info" />
+            </template>
+            <div class="text-caption">
+              Las tareas se asignarán al proyecto:
+              <strong>{{ getProjectName(selectedProject) }}</strong>
+            </div>
+          </q-banner>
 
           <div class="text-caption text-grey-6 q-mb-sm">
             Arrastra las tareas para cambiar el orden en que se le presentan al
@@ -230,12 +264,19 @@
               </q-item-section>
 
               <q-item-section>
-                <q-item-label class="text-weight-medium">{{
-                  task.title
-                }}</q-item-label>
-                <q-item-label caption lines="2">{{
-                  task.description
-                }}</q-item-label>
+                <q-item-label class="text-weight-medium">
+                  {{ task.title }}
+                </q-item-label>
+                <q-item-label caption lines="2">
+                  {{ task.description }}
+                </q-item-label>
+                <!-- Mostrar a qué proyecto pertenece la tarea -->
+                <q-item-label caption v-if="task.projectId" class="q-mt-xs">
+                  <q-badge color="info" outline class="q-px-sm">
+                    <q-icon name="dashboard" size="12px" class="q-mr-xs" />
+                    {{ getProjectName(task.projectId) }}
+                  </q-badge>
+                </q-item-label>
               </q-item-section>
 
               <q-item-section side>
@@ -365,7 +406,7 @@
 
     <!-- ================= DIALOG: crear/editar tarea ================= -->
     <q-dialog v-model="taskDialogOpen">
-      <q-card style="width: 480px; max-width: 90vw">
+      <q-card style="width: 520px; max-width: 90vw">
         <q-card-section>
           <div class="text-h6">
             {{ editingTask ? "Editar tarea" : "Nueva tarea" }}
@@ -377,10 +418,51 @@
 
         <q-form @submit.prevent="onSaveTask">
           <q-card-section class="q-gutter-md">
+            <!-- Selector de proyecto (SOLO si el requerimiento es global) -->
+            <q-select
+              v-if="selectedRequirement?.semesterId"
+              v-model="taskForm.projectId"
+              :options="filteredProjects"
+              option-label="projectName"
+              option-value="projectId"
+              label="Proyecto *"
+              filled
+              emit-value
+              map-options
+              :rules="[(val) => !!val || 'Debes seleccionar un proyecto']"
+              :disable="!!editingTask"
+            >
+              <template v-slot:prepend>
+                <q-icon name="dashboard" color="primary" />
+              </template>
+              <template v-slot:hint>
+                <div class="text-caption">
+                  <q-icon name="info" size="12px" class="q-mr-xs" />
+                  Requerimiento global: la tarea debe pertenecer a un proyecto específico
+                </div>
+              </template>
+            </q-select>
+
+            <!-- Info si el requerimiento es de proyecto -->
+            <q-banner
+              v-else-if="selectedRequirement?.projectId"
+              dense
+              rounded
+              class="bg-blue-1 text-primary"
+            >
+              <template #avatar>
+                <q-icon name="folder_open" size="18px" />
+              </template>
+              <div class="text-caption">
+                Esta tarea pertenecerá al proyecto:
+                <strong>{{ getProjectName(selectedRequirement.projectId) }}</strong>
+              </div>
+            </q-banner>
+
             <q-input
               v-model="taskForm.title"
               filled
-              label="Título"
+              label="Título *"
               :rules="[required]"
             />
             <q-input
@@ -388,7 +470,7 @@
               filled
               type="textarea"
               autogrow
-              label="Descripción (lo que verá el estudiante)"
+              label="Descripción (lo que verá el estudiante) *"
               :rules="[required]"
             />
           </q-card-section>
@@ -451,13 +533,15 @@ const taskDialogOpen = ref(false);
 const savingTask = ref(false);
 const reordering = ref(false);
 const editingTask = ref<Task | null>(null);
-const taskForm = reactive({ title: "", description: "" });
+const taskForm = reactive({
+  title: "",
+  description: "",
+  projectId: "" as string,
+});
 
 // ==========================================
 // COMPUTED
 // ==========================================
-
-// ✅ Nombre del semestre
 const semesterName = computed(() => {
   const sem = semesterStore.semesters.find(
     (s) => s.semesterId === props.semesterId,
@@ -465,30 +549,25 @@ const semesterName = computed(() => {
   return sem ? `${sem.name} (${sem.code})` : "";
 });
 
-// ✅ Filtrar proyectos por semestre
 const filteredProjects = computed(() => {
   if (!props.semesterId) return [];
   return store.projects.filter((p) => p.semesterId === props.semesterId);
 });
 
-// ✅ Verificar si estamos viendo requerimientos globales
 const isGlobalView = computed(() => {
   return showGlobalRequirements.value || !selectedProject.value;
 });
 
-// ✅ Filtrar requerimientos según el toggle
 const filteredRequirements = computed(() => {
   if (!props.semesterId) return [];
 
   let requirements = store.requirements;
 
   if (showGlobalRequirements.value) {
-    // Mostrar SOLO requerimientos globales del semestre
     requirements = requirements.filter(
       (r) => r.semesterId === props.semesterId,
     );
   } else if (selectedProject.value) {
-    // Mostrar requerimientos del proyecto
     requirements = requirements.filter(
       (r) => r.projectId === selectedProject.value,
     );
@@ -497,25 +576,43 @@ const filteredRequirements = computed(() => {
   return requirements;
 });
 
-// ✅ Ordenar tareas
 const orderedTasks = computed(() =>
   [...store.tasks].sort((a: Task, b: Task) => a.orderIndex - b.orderIndex),
 );
 
+/**
+ * 🔥 NUEVA REGLA:
+ * - Requerimiento GLOBAL: requiere proyecto seleccionado para crear tareas
+ * - Requerimiento de PROYECTO: siempre se puede crear tareas (el proyecto está implícito)
+ */
+const canCreateTask = computed(() => {
+  if (!selectedRequirement.value) return false;
+
+  // Si es un requerimiento de proyecto → siempre se puede crear
+  if (selectedRequirement.value.projectId) return true;
+
+  // Si es un requerimiento global → requiere que haya proyecto seleccionado
+  return !!selectedProject.value;
+});
+
+// ==========================================
+// HELPERS
+// ==========================================
+function getProjectName(projectId: string): string {
+  const project = store.projects.find((p) => p.projectId === projectId);
+  return project?.projectName || "Proyecto desconocido";
+}
+
 // ==========================================
 // METHODS
 // ==========================================
-
-// ✅ Cargar requerimientos según el filtro
 async function loadRequirements() {
   if (!props.semesterId) return;
 
   try {
     if (showGlobalRequirements.value || !selectedProject.value) {
-      // Cargar requerimientos globales del semestre
       await store.fetchRequirementsBySemester(props.semesterId);
     } else if (selectedProject.value) {
-      // Cargar requerimientos del proyecto
       await store.fetchRequirements(selectedProject.value);
     }
   } catch (e: any) {
@@ -526,7 +623,6 @@ async function loadRequirements() {
   }
 }
 
-// ✅ Cambio de proyecto
 async function onProjectChange() {
   selectedRequirement.value = null;
   store.tasks.length = 0;
@@ -534,13 +630,11 @@ async function onProjectChange() {
   if (selectedProject.value) {
     await loadRequirements();
   } else {
-    // Si no hay proyecto, cargar globales
     showGlobalRequirements.value = true;
     await loadRequirements();
   }
 }
 
-// ✅ Seleccionar requerimiento
 async function selectRequirement(req: ProjectRequirement) {
   selectedRequirement.value = req;
   try {
@@ -579,7 +673,6 @@ async function onSaveRequirement() {
     };
 
     if (editingRequirement.value) {
-      // Actualizar requerimiento existente
       await store.updateRequirement(editingRequirement.value.requirementId, {
         code: payload.code,
         title: payload.title,
@@ -588,21 +681,18 @@ async function onSaveRequirement() {
       });
       $q.notify({ type: "positive", message: "Requerimiento actualizado" });
     } else {
-      // Crear nuevo requerimiento
       if (showGlobalRequirements.value || !selectedProject.value) {
-        // ✅ Crear requerimiento global del semestre
+        // 🔥 GLOBAL: semesterId, sin projectId
         await store.createRequirement({
           ...payload,
           semesterId: props.semesterId,
         });
         $q.notify({ type: "positive", message: "Requerimiento global creado" });
       } else {
-        // ✅ Crear requerimiento específico del proyecto
-        // El backend debe asignar automáticamente el semesterId del proyecto
+        // 🔥 DE PROYECTO: projectId + semesterId
         await store.createRequirement({
           ...payload,
           projectId: selectedProject.value!,
-          // ✅ También enviamos semesterId por si el backend lo necesita
           semesterId: props.semesterId,
         });
         $q.notify({
@@ -624,6 +714,7 @@ async function onSaveRequirement() {
     savingRequirement.value = false;
   }
 }
+
 function confirmDeleteRequirement(req: ProjectRequirement) {
   $q.dialog({
     title: "Eliminar requerimiento",
@@ -653,6 +744,19 @@ function openTaskDialog(task: Task | null) {
   editingTask.value = task;
   taskForm.title = task?.title ?? "";
   taskForm.description = task?.description ?? "";
+
+  // 🔥 Determinar el projectId de la tarea:
+  // - Si edita: usar el projectId de la tarea existente
+  // - Si crea en req de proyecto: heredar el projectId del requerimiento
+  // - Si crea en req global: usar el proyecto seleccionado (o vacío para forzar selección)
+  if (task) {
+    taskForm.projectId = task.projectId || "";
+  } else if (selectedRequirement.value?.projectId) {
+    taskForm.projectId = selectedRequirement.value.projectId;
+  } else {
+    taskForm.projectId = selectedProject.value || "";
+  }
+
   taskDialogOpen.value = true;
 }
 
@@ -665,17 +769,39 @@ async function onSaveTask() {
     return;
   }
 
+  // 🔥 VALIDACIÓN: si es requerimiento global, exigir proyecto
+  if (selectedRequirement.value.semesterId && !taskForm.projectId) {
+    $q.notify({
+      type: "negative",
+      message: "Debes seleccionar un proyecto para esta tarea",
+    });
+    return;
+  }
+
+  // Determinar el projectId final
+  const finalProjectId =
+    selectedRequirement.value.projectId || taskForm.projectId;
+
+  if (!finalProjectId) {
+    $q.notify({
+      type: "negative",
+      message: "La tarea debe pertenecer a un proyecto",
+    });
+    return;
+  }
+
   savingTask.value = true;
   try {
     if (editingTask.value) {
       await store.updateTask(editingTask.value.taskId, {
         title: taskForm.title,
         description: taskForm.description,
+        // 🔥 NO permitir cambiar el proyecto en edición
       });
       $q.notify({ type: "positive", message: "Tarea actualizada" });
     } else {
       await store.createTask({
-        projectId: selectedRequirement.value.projectId || "",
+        projectId: finalProjectId,
         requirementId: selectedRequirement.value.requirementId,
         orderIndex: orderedTasks.value.length,
         title: taskForm.title,
@@ -687,6 +813,7 @@ async function onSaveTask() {
     editingTask.value = null;
     taskForm.title = "";
     taskForm.description = "";
+    taskForm.projectId = "";
     await store.fetchTasksByRequirement(
       selectedRequirement.value.requirementId,
     );
@@ -766,8 +893,6 @@ async function onDrop(targetIndex: number) {
 // ==========================================
 // WATCHERS & LIFECYCLE
 // ==========================================
-
-// ✅ Recargar cuando cambia el semestre
 watch(
   () => props.semesterId,
   (newVal) => {
@@ -783,7 +908,6 @@ watch(
   { immediate: true },
 );
 
-// ✅ Cargar proyectos cuando se monta
 onMounted(async () => {
   try {
     await store.fetchProjects();
@@ -795,3 +919,9 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.bg-blue-1 {
+  background-color: #e3f2fd;
+}
+</style>

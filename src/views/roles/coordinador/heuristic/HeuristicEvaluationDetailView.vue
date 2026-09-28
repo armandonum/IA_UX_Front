@@ -40,7 +40,7 @@
       />
     </div>
 
-    <!-- ==========coordinator/heuristic/detail/HeuristicTimeline.vue================================================ -->
+    <!-- ========================================================== -->
     <!-- INFO CARD                                                  -->
     <!-- ========================================================== -->
     <q-card flat bordered class="q-mb-md">
@@ -109,101 +109,195 @@
     </q-card>
 
     <!-- ========================================================== -->
-    <!-- KPIs                                                       -->
-    <!-- ========================================================== -->
-    <div class="row q-col-gutter-md q-mb-md">
-      <div class="col-12 col-sm-6 col-md-3">
-        <q-card flat bordered class="bg-blue-1">
-          <q-card-section>
-            <div class="row items-center justify-between">
-              <div>
-                <div class="text-caption text-grey-7">Evaluadores</div>
-                <div class="text-h5 text-weight-bold text-primary">
-                  {{ completedEvaluators }}/{{ totalEvaluators }}
-                </div>
-              </div>
-              <q-icon name="groups" size="42px" color="primary" />
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-
-      <div class="col-12 col-sm-6 col-md-3">
-        <q-card flat bordered class="bg-orange-1">
-          <q-card-section>
-            <div class="row items-center justify-between">
-              <div>
-                <div class="text-caption text-grey-7">Observaciones</div>
-                <div class="text-h5 text-weight-bold text-orange">
-                  {{ totalObservations }}
-                </div>
-              </div>
-              <q-icon name="report_problem" size="42px" color="orange" />
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-
-      <div class="col-12 col-sm-6 col-md-3">
-        <q-card flat bordered class="bg-green-1">
-          <q-card-section>
-            <div class="row items-center justify-between">
-              <div>
-                <div class="text-caption text-grey-7">Positivos</div>
-                <div class="text-h5 text-weight-bold text-positive">
-                  {{ totalPositiveAspects }}
-                </div>
-              </div>
-              <q-icon name="thumb_up" size="42px" color="positive" />
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-
-      <div class="col-12 col-sm-6 col-md-3">
-        <q-card flat bordered class="bg-purple-1">
-          <q-card-section>
-            <div class="row items-center justify-between">
-              <div>
-                <div class="text-caption text-grey-7">Sesiones</div>
-                <div class="text-h5 text-weight-bold text-purple">
-                  {{ sessions.length }}
-                </div>
-              </div>
-              <q-icon name="video_library" size="42px" color="purple" />
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-    </div>
-
-    <!-- ========================================================== -->
-    <!-- LISTA DE SESIONES                                          -->
+    <!-- TABS                                                       -->
     <!-- ========================================================== -->
     <q-card flat bordered>
-      <q-card-section>
-        <div class="row items-center q-mb-md">
-          <q-icon name="video_library" color="primary" size="24px" class="q-mr-sm" />
-          <div class="text-h6">Sesiones de Evaluación</div>
-          <q-space />
-          <div class="text-caption text-grey-6">
-            Haz click en una sesión para ver el detalle
-          </div>
-        </div>
+      <q-tabs
+        v-model="tab"
+        class="text-grey-7"
+        active-color="primary"
+        indicator-color="primary"
+        align="left"
+        narrow-indicator
+        no-caps
+      >
+        <q-tab name="dashboard" icon="dashboard" label="Dashboard" />
+        <q-tab name="sessions" icon="video_library">
+          <q-badge v-if="sessions.length" color="purple" floating>
+            {{ sessions.length }}
+          </q-badge>
+          Sesiones
+        </q-tab>
+        <q-tab name="tasks" icon="task">
+          <q-badge v-if="tasks.length" color="primary" floating>
+            {{ tasks.length }}
+          </q-badge>
+          Tareas
+        </q-tab>
+        <q-tab name="evaluators" icon="groups">
+          <q-badge v-if="evaluators.length" color="info" floating>
+            {{ evaluators.length }}
+          </q-badge>
+          Evaluadores
+        </q-tab>
+        <q-tab name="principles" icon="library_books" label="Principios" />
+        <q-tab name="observations" icon="report_problem">
+          <q-badge v-if="observations.length" color="orange" floating>
+            {{ observations.length }}
+          </q-badge>
+          Observaciones
+        </q-tab>
+        <q-tab name="positives" icon="thumb_up">
+          <q-badge v-if="positiveAspects.length" color="positive" floating>
+            {{ positiveAspects.length }}
+          </q-badge>
+          Positivos
+        </q-tab>
+        <q-tab name="ratings" icon="star">
+          <q-badge v-if="ratings.length" color="purple" floating>
+            {{ ratings.length }}
+          </q-badge>
+          Calificaciones
+        </q-tab>
+        <q-tab name="results" icon="analytics" label="Resultados" />
+      </q-tabs>
 
-        <SessionList
-          :sessions="sessions"
-          :evaluators="evaluators"
-          :tasks="tasks"
-          :observations="observations"
-          :positive-aspects="positiveAspects"
-          :task-progress="taskProgress"
-          :loading="loading"
-          :active-session-id="activeSessionId"
-          :user-names="userNames"
-          @select-session="handleSelectSession"
-        />
-      </q-card-section>
+      <q-separator />
+
+      <q-tab-panels v-model="tab" animated>
+        <!-- ==================================================== -->
+        <!-- TAB: DASHBOARD                                        -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="dashboard">
+          <HeuristicDashboard
+            :evaluation="evaluation"
+            :framework="framework"
+            :evaluators="evaluators"
+            :tasks="tasks"
+            :observations="observations"
+            :positive-aspects="positiveAspects"
+            :ratings="ratings"
+            :final-results="finalResults"
+            :principles="principles"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: SESIONES                                         -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="sessions">
+          <div class="row items-center q-mb-md">
+            <q-icon name="video_library" color="primary" size="24px" class="q-mr-sm" />
+            <div class="text-h6">Sesiones de Evaluación</div>
+            <q-space />
+            <div class="text-caption text-grey-6">
+              Haz click en una sesión para ver el detalle
+            </div>
+          </div>
+
+          <SessionList
+            :sessions="sessions"
+            :evaluators="evaluators"
+            :tasks="tasks"
+            :observations="observations"
+            :positive-aspects="positiveAspects"
+            :task-progress="taskProgress"
+            :loading="loading"
+            :active-session-id="activeSessionId"
+            :user-names="userNames"
+            @select-session="handleSelectSession"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: TAREAS                                           -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="tasks">
+          <HeuristicTaskManager
+            :tasks="tasks"
+            :project-tasks="projectTasks"
+            :evaluation-id="evaluation?.evaluationId"
+            :can-edit="canEdit"
+            @add-tasks="handleAddTasksFromProject"
+            @delete="handleDeleteTask"
+            @reorder="handleReorderTasks"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: EVALUADORES                                      -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="evaluators">
+          <HeuristicEvaluatorManager
+            :evaluators="evaluators"
+            :available-users="availableUsers"
+            :auth-user-id="authUserId"
+            :can-edit="canEdit"
+            @assign="handleAssignEvaluators"
+            @remove="handleRemoveEvaluator"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: PRINCIPIOS                                       -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="principles">
+          <HeuristicPrincipleList
+            :framework="framework"
+            :principles="principles"
+            :can-edit="false"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: OBSERVACIONES                                    -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="observations">
+          <HeuristicObservationViewer
+            :observations="observations"
+            :principles="principles"
+            :evaluators="evaluators"
+            :tasks="tasks"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: ASPECTOS POSITIVOS                               -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="positives">
+          <HeuristicPositiveAspectViewer
+            :positive-aspects="positiveAspects"
+            :evaluators="evaluators"
+            :tasks="tasks"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: CALIFICACIONES                                   -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="ratings">
+          <HeuristicRatingViewer
+            :ratings="ratings"
+            :observations="observations"
+            :principles="principles"
+            :evaluators="evaluators"
+          />
+        </q-tab-panel>
+
+        <!-- ==================================================== -->
+        <!-- TAB: RESULTADOS FINALES                               -->
+        <!-- ==================================================== -->
+        <q-tab-panel name="results">
+          <HeuristicFinalResultsViewer
+            :final-results="finalResults"
+            :evaluation="evaluation"
+            :can-generate="isInProgress || isCompleted"
+            :loading="loading"
+            @generate="handleGenerateResults"
+            @recalculate="handleRecalculateResults"
+          />
+        </q-tab-panel>
+      </q-tab-panels>
     </q-card>
   </div>
 </template>
@@ -214,7 +308,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import api from '@/api/axios'
 import { heuristicApi } from '@/api/heuristic.api'
+import { useAuthStore } from '@/stores/auth.store'
+
+// Componentes
 import SessionList from '@/components/coordinator/heuristic/detail/SessionList.vue'
+import HeuristicDashboard from '@/components/coordinator/heuristic/HeuristicDashboard.vue'
+import HeuristicTaskManager from '@/components/coordinator/heuristic/HeuristicTaskManager.vue'
+import HeuristicEvaluatorManager from '@/components/coordinator/heuristic/HeuristicEvaluatorManager.vue'
+import HeuristicPrincipleList from '@/components/coordinator/heuristic/HeuristicPrincipleList.vue'
+import HeuristicObservationViewer from '@/components/coordinator/heuristic/HeuristicObservationViewer.vue'
+import HeuristicPositiveAspectViewer from '@/components/coordinator/heuristic/HeuristicPositiveAspectViewer.vue'
+import HeuristicRatingViewer from '@/components/coordinator/heuristic/HeuristicRatingViewer.vue'
+import HeuristicFinalResultsViewer from '@/components/coordinator/heuristic/HeuristicFinalResultsViewer.vue'
+
 import type {
   HeuristicEvaluation,
   HeuristicFramework,
@@ -222,37 +328,52 @@ import type {
   HeuristicTask,
   HeuristicObservation,
   HeuristicPositiveAspect,
+  HeuristicRating,
   HeuristicTaskProgress,
+  HeuristicFinalResult,
+  HeuristicPrinciple,
 } from '@/api/heuristic.api'
 import type { UsabilitySession } from '@/composables/coordinator/heuristic/useHeuristicSessionDetail'
 
 // ============================================================
-// ROUTER
+// ROUTER / STORE
 // ============================================================
 const route = useRoute()
 const router = useRouter()
 const $q = useQuasar()
+const auth = useAuthStore()
 
 const evaluationId = computed(() => route.params.evaluationId as string)
+const authUserId = computed(() => auth.user?.user_id || '')
 
 // ============================================================
 // ESTADO
 // ============================================================
+const tab = ref('dashboard')
 const loading = ref(false)
 const generatingResults = ref(false)
 const error = ref<string | null>(null)
 
+// Datos de la evaluación
 const evaluation = ref<HeuristicEvaluation | null>(null)
 const framework = ref<HeuristicFramework | null>(null)
 const evaluators = ref<HeuristicEvaluator[]>([])
 const tasks = ref<HeuristicTask[]>([])
+const principles = ref<HeuristicPrinciple[]>([])
 const observations = ref<HeuristicObservation[]>([])
 const positiveAspects = ref<HeuristicPositiveAspect[]>([])
+const ratings = ref<HeuristicRating[]>([])
 const taskProgress = ref<HeuristicTaskProgress[]>([])
+const finalResults = ref<HeuristicFinalResult | null>(null)
+
+// Sesiones
 const sessions = ref<UsabilitySession[]>([])
+const activeSessionId = ref<string | null>(null)
 const userNames = ref<Record<string, { name: string; email: string }>>({})
 
-const activeSessionId = ref<string | null>(null)
+// Datos auxiliares
+const projectTasks = ref<any[]>([])
+const availableUsers = ref<any[]>([])
 
 // ============================================================
 // COMPUTED
@@ -264,19 +385,23 @@ const completedEvaluators = computed(
 )
 const totalEvaluators = computed(() => evaluators.value.length)
 
-const totalObservations = computed(() => observations.value.length)
-const totalPositiveAspects = computed(() => positiveAspects.value.length)
-
 const evaluationProgress = computed(() => {
   if (totalEvaluators.value === 0) return 0
   return Math.round((completedEvaluators.value / totalEvaluators.value) * 100)
 })
 
-const canStart = computed(() => evaluation.value?.status === 'draft' || evaluation.value?.status === 'planning')
+const canStart = computed(
+  () => evaluation.value?.status === 'draft' || evaluation.value?.status === 'planning',
+)
 const canComplete = computed(() => evaluation.value?.status === 'in_progress')
 const canGenerateResults = computed(
   () => evaluation.value?.status === 'in_progress' || evaluation.value?.status === 'completed',
 )
+const canEdit = computed(
+  () => evaluation.value?.status === 'draft' || evaluation.value?.status === 'planning',
+)
+const isInProgress = computed(() => evaluation.value?.status === 'in_progress')
+const isCompleted = computed(() => evaluation.value?.status === 'completed')
 
 // ============================================================
 // CARGA DE DATOS
@@ -295,26 +420,48 @@ async function loadAll() {
     framework.value = fwRes.data
 
     // 3. Cargar datos en paralelo
-// 3. Cargar datos en paralelo
-const [evaluatorsRes, tasksRes, obsRes, posRes, progressRes] = await Promise.all([
-  heuristicApi.getEvaluatorsByEvaluation(evaluationId.value),
-  heuristicApi.getTasksByEvaluation(evaluationId.value),
-  heuristicApi.getObservationsByEvaluation(evaluationId.value),
-  heuristicApi.getPositiveAspectsByEvaluation(evaluationId.value),
-  heuristicApi.findProgressByEvaluation(evaluationId.value).catch(() => ({ data: [] })),
-])
+    const [
+      evaluatorsRes,
+      tasksRes,
+      principlesRes,
+      obsRes,
+      posRes,
+      ratingsRes,
+      progressRes,
+      finalResultsRes,
+    ] = await Promise.all([
+      heuristicApi.getEvaluatorsByEvaluation(evaluationId.value),
+      heuristicApi.getTasksByEvaluation(evaluationId.value),
+      heuristicApi.getPrinciplesByFramework(evalRes.data.frameworkId),
+      heuristicApi.getObservationsByEvaluation(evaluationId.value),
+      heuristicApi.getPositiveAspectsByEvaluation(evaluationId.value),
+      heuristicApi.getRatingsByEvaluation(evaluationId.value),
+      heuristicApi.findProgressByEvaluation(evaluationId.value).catch(() => ({ data: [] })),
+      heuristicApi.getFinalResultsByEvaluation(evaluationId.value).catch(() => ({ data: null })),
+    ])
 
     evaluators.value = evaluatorsRes.data
     tasks.value = tasksRes.data
+    principles.value = principlesRes.data
     observations.value = obsRes.data
     positiveAspects.value = posRes.data
+    ratings.value = ratingsRes.data
     taskProgress.value = progressRes.data || []
+    finalResults.value = finalResultsRes.data || null
 
     // 4. Cargar nombres de usuarios
     await loadUserNames()
 
-    // 5. Cargar sesiones de usabilidad (filtradas)
+    // 5. Cargar sesiones
     await loadSessions()
+
+    // 6. Cargar tareas del proyecto (para agregar a la evaluación)
+    if (evaluation.value?.projectId) {
+      await loadProjectTasks(evaluation.value.projectId)
+    }
+
+    // 7. Cargar usuarios disponibles (para asignar evaluadores)
+    await loadAvailableUsers()
   } catch (e: any) {
     error.value = e.message || 'Error al cargar la evaluación'
     console.error(e)
@@ -340,29 +487,36 @@ async function loadUserNames() {
   }
 }
 
-/**
- * Carga las sesiones heurísticas de esta evaluación.
- *
- * Estrategia: filtrar por project_id + evaluation_type='heuristic' + task_id en las tareas de la evaluación.
- */
+async function loadProjectTasks(projectId: string) {
+  try {
+    const { data } = await api.get(`/tasks/projectId/${projectId}`)
+    projectTasks.value = data
+  } catch (e) {
+    console.error('Error al cargar tareas del proyecto:', e)
+  }
+}
+
+async function loadAvailableUsers() {
+  try {
+    const { data } = await api.get('/users')
+    // Filtrar solo los usuarios creados por el auth user
+    availableUsers.value = data.filter((u: any) => u.created_by === authUserId.value)
+  } catch (e) {
+    console.error('Error al cargar usuarios:', e)
+  }
+}
+
 async function loadSessions() {
   try {
-    // 1. Obtener todas las sesiones del proyecto
     const projectId = evaluation.value?.projectId
     if (!projectId) return
 
     const { data: allSessions } = await api.get('/usability-sessions')
-
-    // 2. Obtener los task IDs de la evaluación
     const evaluationTaskIds = new Set(tasks.value.map(t => t.id))
 
-    // 3. Filtrar sesiones
     const filtered = (allSessions as UsabilitySession[]).filter(s => {
-      // Debe ser del mismo proyecto
       if (s.proyectId !== projectId) return false
-      // Debe ser heurística
       if (s.evaluationType !== 'heuristic') return false
-      // La tarea debe pertenecer a esta evaluación
       if (!s.taskId || !evaluationTaskIds.has(s.taskId)) return false
       return true
     })
@@ -375,7 +529,7 @@ async function loadSessions() {
 }
 
 // ============================================================
-// ACCIONES
+// ACCIONES DE ESTADO
 // ============================================================
 async function handleStart() {
   const confirm = await $q.dialog({
@@ -425,10 +579,93 @@ async function handleGenerateResults() {
     })
     $q.notify({ type: 'positive', message: 'Resultados generados correctamente' })
     await loadAll()
+    tab.value = 'results'
   } catch (e: any) {
     $q.notify({ type: 'negative', message: 'Error al generar resultados' })
   } finally {
     generatingResults.value = false
+  }
+}
+
+async function handleRecalculateResults() {
+  try {
+    await heuristicApi.recalculateFinalResults(evaluationId.value)
+    await loadAll()
+    $q.notify({ type: 'positive', message: 'Resultados recalculados' })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Error al recalcular' })
+  }
+}
+
+// ============================================================
+// HANDLERS DE TAREAS
+// ============================================================
+async function handleAddTasksFromProject(selectedTasks: any[]) {
+  try {
+    let orderIndex = tasks.value.length + 1
+    for (const projectTask of selectedTasks) {
+      await heuristicApi.createTask({
+        evaluationId: evaluationId.value,
+        projectTaskId: projectTask.taskId,
+        title: projectTask.title,
+        description: projectTask.description || '',
+        userGoal: projectTask.userGoal || `El usuario debe ${projectTask.title}`,
+        orderIndex: orderIndex++,
+      })
+    }
+    await loadAll()
+    $q.notify({ type: 'positive', message: `${selectedTasks.length} tarea(s) agregada(s)` })
+  } catch (e: any) {
+    $q.notify({ type: 'negative', message: 'Error al agregar tareas' })
+  }
+}
+
+async function handleDeleteTask(taskId: string) {
+  try {
+    await heuristicApi.deleteTask(taskId)
+    await loadAll()
+    $q.notify({ type: 'info', message: 'Tarea eliminada' })
+  } catch (e: any) {
+    $q.notify({ type: 'negative', message: 'Error al eliminar tarea' })
+  }
+}
+
+async function handleReorderTasks(taskIds: string[]) {
+  try {
+    await heuristicApi.reorderTasks(evaluationId.value, taskIds)
+    await loadAll()
+    $q.notify({ type: 'positive', message: 'Tareas reordenadas' })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Error al reordenar' })
+  }
+}
+
+// ============================================================
+// HANDLERS DE EVALUADORES
+// ============================================================
+async function handleAssignEvaluators(userIds: string[]) {
+  try {
+    for (const userId of userIds) {
+      await heuristicApi.assignEvaluator({
+        evaluationId: evaluationId.value,
+        userId,
+        role: 'evaluator',
+      })
+    }
+    await loadAll()
+    $q.notify({ type: 'positive', message: `${userIds.length} evaluador(es) asignado(s)` })
+  } catch (e: any) {
+    $q.notify({ type: 'negative', message: 'Error al asignar evaluadores' })
+  }
+}
+
+async function handleRemoveEvaluator(evaluatorId: string) {
+  try {
+    await heuristicApi.deleteEvaluator(evaluatorId)
+    await loadAll()
+    $q.notify({ type: 'info', message: 'Evaluador removido' })
+  } catch (e: any) {
+    $q.notify({ type: 'negative', message: 'Error al remover' })
   }
 }
 

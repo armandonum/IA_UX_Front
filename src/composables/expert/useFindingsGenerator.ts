@@ -1,7 +1,12 @@
-// composables/useFindingsGenerator.ts
-import { ref, computed } from 'vue'
-import { useQuasar } from 'quasar'
+// composables/expert/useFindingsGenerator.ts
+import { ref } from 'vue'
 import type { GeneratedFinding, FindingGenerationConfig } from '@/types/expert/findings.types'
+import {
+  getEmotionTemplate,
+  getSentimentTemplate,
+  findMatchingCombinationRule,
+  getHumanLabel,
+} from '@/types/expert/findings.dictionary'
 
 interface TimelineData {
   events: any[]
@@ -13,92 +18,29 @@ interface TimelineData {
   taskId?: string
   sessionId?: string
   evaluationId: string
-  getNodeIdFromEvent: (ev: any) => string 
+  getNodeIdFromEvent: (ev: any) => string
   getEmotionLabel: (em: any) => string
   getNearestEvent: (ms: number) => any
   getNearestEmotion: (ms: number) => any
   getNearestComment: (ms: number) => any
   getNearestSentiment: (ms: number) => any
 }
-export const useFindingsGenerator = () => {
-  const $q = useQuasar()
-  const isGenerating = ref(false)
-  const generatedFindings = ref<GeneratedFinding[]>([])
-  const generationProgress = ref(0)
 
-  // ============================================================
-  // CONFIGURACIÓN
-  // ============================================================
-  const defaultConfig: FindingGenerationConfig = {
-    minConfidence: 0.6,
-    minFrequency: 1,
-    maxTimeGap: 5000, // 5 segundos
-    includeEmotions: true,
-    includeSentiments: true,
-    includeUserComments: true,
-    includeExpertComments: true,
-  }
+interface TimeWindow {
+  startMs: number
+  endMs: number
+  emotions: any[]
+  sentiments: any[]
+  comments: any[]
+  expertComments: any[]
+}
 
-  // ============================================================
-  // DETECTORES DE PATRONES
-  // ============================================================
-
-  /**
-   * Detecta problemas de usabilidad basados en comentarios de usuarios
-   */
-
-function detectUserCommentIssues(data: TimelineData): GeneratedFinding[] {
-  const findings: GeneratedFinding[] = []
-  const { 
-    comments, 
-    getNearestEmotion, 
-    getNearestSentiment, 
-    getNearestEvent,
-    getNodeIdFromEvent,
-    evaluationId, 
-    sessionId, 
-    taskId 
-  } = data
-
-  console.log('🔍 detectUserCommentIssues - comentarios:', comments?.length)
-
-  if (!comments || comments.length === 0) {
-    console.log('⚠️ No hay comentarios para analizar')
-    return []
-  }
-
-  if (typeof getNodeIdFromEvent !== 'function') {
-    console.warn('⚠️ getNodeIdFromEvent no está definido en detectUserCommentIssues')
-    return []
-  }
-
-  const problemKeywords = [
-    // Problemas directos
-    'problema', 'error', 'fallo', 'falla', 'bug', 'incidente',
-    // Dificultad
-    'difícil', 'complicado', 'confuso', 'lento', 'tarda', 'demora',
-    'no funciona', 'no sirve', 'no responde', 'no carga', 'no guarda',
-    'no entiendo', 'no sé', 'no puedo', 'no me deja', 'no aparece',
-    // Acciones fallidas
-    'no logro', 'no puedo ver', 'no veo', 'no encuentro', 'no localizo',
-    'no me permite', 'no me deja', 'no me muestra', 'no me aparece',
-    // Frustración
-    'ayuda', 'socorro', 'qué hago', 'cómo hago', 'dónde está',
-    'mal', 'feo', 'horrible', 'terrible', 'pésimo',
-    // Negaciones
-    'no', 'ni', 'sin', 'falta', 'falta', 'ausente'
-  ]
-
-
-  const TYPE_MAPPING: Record<string, string> = {
-  // Nuestros tipos internos → Tipos del backend
+const TYPE_MAPPING: Record<string, string> = {
   usability: 'problem',
   emotional: 'difficulty',
   sentiment: 'friction',
   expert: 'problem',
   mixed: 'problem',
-  
-  // Ya son válidos
   problem: 'problem',
   difficulty: 'difficulty',
   accessibility: 'accessibility',
@@ -110,586 +52,558 @@ function detectUserCommentIssues(data: TimelineData): GeneratedFinding[] {
 function mapTypeToBackend(internalType: string): string {
   return TYPE_MAPPING[internalType] || 'problem'
 }
-  for (const comment of comments) {
-    const text = comment.text?.toLowerCase() || ''
-    console.log(`🔍 Evaluando comentario: "${text}"`)
-    
-    // ✅ Buscar cualquier palabra clave
-    const hasProblem = problemKeywords.some(keyword => text.includes(keyword))
-    console.log(`  - Contiene palabras clave de problema: ${hasProblem}`)
 
-    // ✅ También detectar si el comentario es negativo por contexto
-    const isNegative = text.includes('no') || text.includes('mal') || text.includes('error')
-    const hasIssue = hasProblem || (isNegative && text.length > 10)
-
-    if (hasIssue) {
-      console.log(`✅ Comentario con problema detectado: "${comment.text}"`)
-      
-      const nearestEmotion = getNearestEmotion(comment.elapsedMsTotal)
-      const nearestSentiment = getNearestSentiment(comment.elapsedMsTotal)
-      const nearestEvent = getNearestEvent(comment.elapsedMsTotal)
-      
-      console.log(`  - Emoción cercana:`, nearestEmotion)
-      console.log(`  - Sentimiento cercano:`, nearestSentiment)
-      console.log(`  - Evento cercano:`, nearestEvent)
-
-      // ✅ Obtener nodeId desde el evento
-      const nodeId = nearestEvent ? getNodeIdFromEvent(nearestEvent) : null
-
-      findings.push({
-        _tempId: `uc-${comment.commentId}`,
-        evaluationId: evaluationId,  // ✅ SIEMPRE tiene valor
-        sessionId: sessionId || null,  // ✅ Si no hay, null
-        taskId: taskId || null,  // ✅ Si no hay, null
-        requirementId: null,  // ✅ Por ahora null
-        flowId: null,  // ✅ Por ahora null
-        nodeId: nodeId,
-        version: nearestEvent?.version || '1.0',
-        type: 'problem',
-        description: `Usuario reportó problema: "${comment.text}"`,
-        severity: determineSeverity(nearestEmotion, nearestSentiment, text),
-        frequency: 1,
-        impact: determineImpact(nearestEmotion, nearestSentiment),
-        priority: 'medium',
-        recommendation: generateRecommendation('usability', comment.text, nearestEmotion),
-        status: 'pending',
-        emotionInferred: nearestEmotion?.dominantEmotion || nearestEmotion?.emotion || null,
-        textualSentiment: nearestSentiment?.uxLabel || null,
-        userComment: comment.text,
-        expertComment: null,
-        userCommentId: comment.commentId,
-        expertCommentId: null,
-        aggregatedFrom: [comment.commentId],
-        occurrences: 1,
-        source: 'user_comment',
-        confidence: calculateConfidence(nearestEmotion, nearestSentiment),
-        relatedEvents: nearestEvent ? [nearestEvent] : [],
-        relatedEmotions: nearestEmotion ? [nearestEmotion] : [],
-        relatedSentiments: nearestSentiment ? [nearestSentiment] : [],
-        relatedComments: [comment],
-        relatedExpertComments: [],
-      })
-    }
-  }
-  console.log(`📊 Hallazgos de comentarios de usuario generados: ${findings.length}`)
-  return findings
+let tempIdCounter = 0
+function generateTempId(prefix: string = 'gen'): string {
+  return `${prefix}_${Date.now()}_${tempIdCounter++}`
 }
 
-// ============================================================
-// DETECTOR DE PROBLEMAS EMOCIONALES
-// ============================================================
-function detectEmotionalIssues(data: TimelineData): GeneratedFinding[] {
-  const findings: GeneratedFinding[] = []
-  const { 
-    emotionReadings, 
-    comments, 
-    getNearestComment, 
-    getNearestEvent, 
-    getNearestSentiment, 
-    getEmotionLabel,
-    getNodeIdFromEvent,  // ✅ AGREGAR AQUÍ
-    evaluationId, 
-    sessionId, 
-    taskId 
-  } = data
+export const useFindingsGenerator = () => {
+  const isGenerating = ref(false)
+  const generatedFindings = ref<GeneratedFinding[]>([])
+  const generationProgress = ref(0)
 
-  // ✅ Verificar que getEmotionLabel existe
-  if (typeof getEmotionLabel !== 'function') {
-    console.warn('⚠️ getEmotionLabel no está definido en detectEmotionalIssues')
-    return []
+  const defaultConfig: FindingGenerationConfig = {
+    minConfidence: 0.5,
+    minFrequency: 1,
+    maxTimeGap: 5000,
+    includeEmotions: true,
+    includeSentiments: true,
+    includeUserComments: true,
+    includeExpertComments: true,
+    emotionChangeThreshold: 0.3,
   }
 
-  // ✅ Verificar que getNodeIdFromEvent existe
-  if (typeof getNodeIdFromEvent !== 'function') {
-    console.warn('⚠️ getNodeIdFromEvent no está definido en detectEmotionalIssues')
-    return []
-  }
+  // ============================================================
+  // FILTRAR EMOCIONES - solo cambios significativos
+  // ============================================================
+  function filterSignificantEmotionChanges(
+    emotionReadings: any[],
+    threshold: number,
+  ): any[] {
+    if (!emotionReadings.length) return []
 
-  const negativeEmotions = ['frustration', 'anger', 'confusion', 'disappointment', 'anxiety', 'sadness']
+    const result: any[] = []
+    let lastSignificantEmotion: any = null
 
-  for (const emotion of emotionReadings) {
-    const emotionLabel = getEmotionLabel(emotion).toLowerCase()
-    const isNegative = negativeEmotions.some(ne => emotionLabel.includes(ne))
+    for (const reading of emotionReadings) {
+      const currentEmotion = (reading.dominantEmotion || reading.emotion || 'neutral').toLowerCase()
+      const currentScores = reading.scoresJson || {}
 
-    if (isNegative && emotion.confidence && emotion.confidence > 0.6) {
-      const nearestComment = getNearestComment(emotion.elapsedMsTotal)
-      const nearestEvent = getNearestEvent(emotion.elapsedMsTotal)
-      const nearestSentiment = getNearestSentiment(emotion.elapsedMsTotal)
-
-      // Verificar si ya hay un hallazgo similar
-      const existing = findings.find(f =>
-        f.source === 'emotion' &&
-        Math.abs(getEmotionMs(f.relatedEmotions[0]) - getEmotionMs(emotion)) < 5000
-      )
-
-      if (existing) {
-        existing.frequency += 1
-        existing.occurrences += 1
-        existing.relatedEmotions.push(emotion)
+      if (!lastSignificantEmotion) {
+        result.push(reading)
+        lastSignificantEmotion = reading
         continue
       }
 
-      // ✅ Usar getNodeIdFromEvent desde data
-      const nodeId = nearestEvent ? getNodeIdFromEvent(nearestEvent) : null
+      const lastEmotion = (
+        lastSignificantEmotion.dominantEmotion ||
+        lastSignificantEmotion.emotion ||
+        'neutral'
+      ).toLowerCase()
 
-      findings.push({
-        _tempId: `em-${Date.now()}-${findings.length}`,
-        evaluationId,
-        sessionId,
-        taskId,
-        nodeId: nodeId,
-        version: nearestEvent?.version || '1.0',
-        type: 'difficulty',
-        description: `Usuario experimentó ${emotionLabel} durante la interacción`,
-        severity: determineSeverity(emotion, null, emotionLabel),
-        frequency: 1,
-        impact: 'medium',
-        priority: 'medium',
-        recommendation: generateRecommendation('emotional', emotionLabel, emotion),
-        status: 'pending',
-        emotionInferred: emotionLabel,
-        textualSentiment: nearestSentiment?.uxLabel || null,
-        userComment: nearestComment?.text || null,
-        expertComment: null,
-        userCommentId: nearestComment?.commentId || null,
-        expertCommentId: null,
-        aggregatedFrom: [],
-        occurrences: 1,
-        source: 'emotion',
-        confidence: emotion.confidence || 0.7,
-        relatedEvents: nearestEvent ? [nearestEvent] : [],
-        relatedEmotions: [emotion],
-        relatedSentiments: nearestSentiment ? [nearestSentiment] : [],
-        relatedComments: nearestComment ? [nearestComment] : [],
-        relatedExpertComments: [],
-      })
-    }
-  }
+      // Cambió la emoción dominante → significativo
+      if (currentEmotion !== lastEmotion) {
+        result.push(reading)
+        lastSignificantEmotion = reading
+        continue
+      }
 
-  return findings
-}
+      // Misma emoción pero con cambio significativo en score
+      const lastScores = lastSignificantEmotion.scoresJson || {}
+      const currentScore = currentScores[currentEmotion] || 0
+      const lastScore = lastScores[lastEmotion] || 0
 
-  /**
-   * Detecta problemas basados en sentimientos negativos
-   */
-  function detectSentimentIssues(data: TimelineData): GeneratedFinding[] {
-    const findings: GeneratedFinding[] = []
-    const { sentiments, getNearestComment, getNearestEvent, getNearestEmotion, evaluationId, sessionId, taskId } = data
-
-    const negativeSentiments = ['frustration', 'difficulty', 'confusion', 'dissatisfaction']
-
-    for (const sentiment of sentiments) {
-      const isNegative = negativeSentiments.some(ns =>
-        sentiment.uxLabel?.toLowerCase().includes(ns) ||
-        sentiment.sentiment?.toLowerCase().includes(ns)
-      )
-
-      if (isNegative && sentiment.confidence && sentiment.confidence > 0.6) {
-        const nearestComment = getNearestComment(sentiment.elapsedMsTotal)
-        const nearestEvent = getNearestEvent(sentiment.elapsedMsTotal)
-        const nearestEmotion = getNearestEmotion(sentiment.elapsedMsTotal)
-
-        findings.push({
-          _tempId: `st-${Date.now()}-${findings.length}`,
-          evaluationId,
-          sessionId,
-          taskId,
-          nodeId: getNodeIdFromEvent(nearestEvent),
-          version: nearestEvent?.version || '1.0',
-          type: 'friction',
-          description: `Sentimiento negativo detectado: ${sentiment.uxLabel || sentiment.sentiment}`,
-          severity: determineSeverity(nearestEmotion, sentiment, ''),
-          frequency: 1,
-          impact: 'medium',
-          priority: 'medium',
-          recommendation: generateRecommendation('sentiment', sentiment.text || '', nearestEmotion),
-          status: 'pending',
-          emotionInferred: nearestEmotion?.dominantEmotion || nearestEmotion?.emotion || null,
-          textualSentiment: sentiment.uxLabel || null,
-          userComment: nearestComment?.text || null,
-          expertComment: null,
-          userCommentId: nearestComment?.commentId || null,
-          expertCommentId: null,
-          aggregatedFrom: [],
-          occurrences: 1,
-          source: 'sentiment',
-          confidence: sentiment.confidence || 0.7,
-          relatedEvents: nearestEvent ? [nearestEvent] : [],
-          relatedEmotions: nearestEmotion ? [nearestEmotion] : [],
-          relatedSentiments: [sentiment],
-          relatedComments: nearestComment ? [nearestComment] : [],
-          relatedExpertComments: [],
-        })
+      if (Math.abs(currentScore - lastScore) > threshold) {
+        result.push(reading)
+        lastSignificantEmotion = reading
       }
     }
 
-    return findings
+    return result
   }
 
-  /**
-   * Detecta problemas basados en comentarios de expertos
-   */
-  
-function detectExpertIssues(data: TimelineData): GeneratedFinding[] {
+  // ============================================================
+  // AGRUPAR POR VENTANAS DE TIEMPO
+  // ============================================================
+  function groupByTimeWindows(
+    emotions: any[],
+    sentiments: any[],
+    comments: any[],
+    expertComments: any[],
+    maxGap: number,
+  ): TimeWindow[] {
+    const allItems = [
+      ...emotions.map((e) => ({ type: 'emotion' as const, ms: e.elapsedMsTotal || 0, data: e })),
+      ...sentiments.map((s) => ({ type: 'sentiment' as const, ms: s.elapsedMsTotal || 0, data: s })),
+      ...comments.map((c) => ({ type: 'comment' as const, ms: c.elapsedMsTotal || 0, data: c })),
+      ...expertComments.map((e) => ({ type: 'expert' as const, ms: e.elapsedMsTotal || 0, data: e })),
+    ].sort((a, b) => a.ms - b.ms)
+
+    const windows: TimeWindow[] = []
+    let currentWindow: TimeWindow | null = null
+
+    for (const item of allItems) {
+      if (!currentWindow || item.ms - currentWindow.endMs > maxGap) {
+        if (currentWindow) windows.push(currentWindow)
+        currentWindow = {
+          startMs: item.ms,
+          endMs: item.ms,
+          emotions: [],
+          sentiments: [],
+          comments: [],
+          expertComments: [],
+        }
+      }
+
+      currentWindow.endMs = item.ms
+
+      switch (item.type) {
+        case 'emotion':
+          currentWindow.emotions.push(item.data)
+          break
+        case 'sentiment':
+          currentWindow.sentiments.push(item.data)
+          break
+        case 'comment':
+          currentWindow.comments.push(item.data)
+          break
+        case 'expert':
+          currentWindow.expertComments.push(item.data)
+          break
+      }
+    }
+
+    if (currentWindow) windows.push(currentWindow)
+    return windows
+  }
+
+  // ============================================================
+  // GENERAR HALLAZGOS POR VENTANA
+  // ============================================================
+ function generateFindingsFromWindow(
+  window: TimeWindow,
+  data: TimelineData,
+  config: FindingGenerationConfig,
+): GeneratedFinding[] {
   const findings: GeneratedFinding[] = []
-  const { 
-    expertComments, 
-    getNearestComment, 
-    getNearestEvent, 
-    getNearestEmotion, 
-    getNearestSentiment,
-    getNodeIdFromEvent,
-    evaluationId, 
-    sessionId, 
-    taskId 
-  } = data
+  const midMs = (window.startMs + window.endMs) / 2
 
-  console.log('🔍 detectExpertIssues - comentarios de experto:', expertComments?.length)
+  const nearestEvent = data.getNearestEvent(midMs)
+  const nodeId = nearestEvent ? data.getNodeIdFromEvent(nearestEvent) : null
+  const nodeName = nearestEvent?.screen_name || nodeId || 'pantalla desconocida'
+  const eventType = getHumanLabel(
+    'eventType',
+    nearestEvent?.event_type || 'interacción',
+  )
 
-  if (!expertComments || expertComments.length === 0) {
-    console.log('⚠️ No hay comentarios de experto para analizar')
-    return []
+  const emotionKeys = window.emotions.map((e) =>
+    (e.dominantEmotion || e.emotion || 'neutral').toLowerCase(),
+  )
+  const sentimentKeys = window.sentiments.map((s) => s.uxLabel || 'Neutral')
+  const commentTexts = window.comments.map((c) => c.text).filter(Boolean)
+  const expertTexts = window.expertComments.map((e) => e.comment).filter(Boolean)
+
+  // ============================================================
+  // REGLA 1: Combinación específica
+  // ============================================================
+  const combinationRule = findMatchingCombinationRule(
+    emotionKeys,
+    sentimentKeys,
+    commentTexts.length > 0,
+  )
+
+  if (combinationRule) {
+    const description = combinationRule.descriptionTemplate
+      .replace('{comment}', commentTexts[0] || '')
+      .replace(/{nodeName}/g, nodeName)
+
+    const recommendation = combinationRule.recommendationTemplate.replace(
+      /{nodeName}/g,
+      nodeName,
+    )
+
+    findings.push(
+      createFinding({
+        type: combinationRule.type,
+        severity: combinationRule.severity,
+        description,
+        recommendation,
+        source: 'mixed',
+        confidence: 0.9,
+        nodeId,
+        window,
+        evaluationId: data.evaluationId,
+        sessionId: data.sessionId || null,
+        taskId: data.taskId || null,
+        emotionInferred: emotionKeys[0],
+        textualSentiment: sentimentKeys[0],
+        userComment: commentTexts[0],
+        eventType,
+        getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+      }),
+    )
   }
 
-  if (typeof getNodeIdFromEvent !== 'function') {
-    console.warn('⚠️ getNodeIdFromEvent no está definido en detectExpertIssues')
-    return []
+  // ============================================================
+  // REGLA 2: Emoción significativa
+  // ============================================================
+  if (config.includeEmotions && window.emotions.length > 0) {
+    const dominantEmotion = getMostFrequent(emotionKeys)
+    const template = getEmotionTemplate(dominantEmotion)
+
+    if (template.minConfidence <= 0.5) {
+      const templateIdx = Math.floor(
+        Math.random() * template.descriptionTemplates.length,
+      )
+      const recIdx = Math.floor(
+        Math.random() * template.recommendationTemplates.length,
+      )
+
+      const description = template.descriptionTemplates[templateIdx]
+        .replace('{context}', ` en la pantalla "${nodeName}"`)
+        .replace('{detail}', '')
+
+      const recommendation = template.recommendationTemplates[recIdx].replace(
+        /{node}/g,
+        nodeName,
+      )
+
+      findings.push(
+        createFinding({
+          type: template.type,
+          severity: template.severity,
+          description,
+          recommendation,
+          source: 'emotion',
+          confidence: window.emotions[0]?.confidence || 0.7,
+          nodeId,
+          window,
+          evaluationId: data.evaluationId,
+          sessionId: data.sessionId || null,
+          taskId: data.taskId || null,
+          emotionInferred: dominantEmotion,
+          eventType,
+          getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+        }),
+      )
+    }
   }
 
-  for (const expertComment of expertComments) {
-    console.log(`🔍 Evaluando comentario de experto: "${expertComment.comment}"`)
-    console.log(`  - Tipo: ${expertComment.commentType}`)
-    
-    // ✅ Incluir comentarios de tipo 'problem', 'recommendation', o cualquier comentario que tenga severidad
-    const isRelevant = expertComment.commentType === 'problem' || 
-                       expertComment.commentType === 'recommendation' ||
-                       expertComment.severity
+  // ============================================================
+  // REGLA 3: Sentimiento
+  // ============================================================
+  if (config.includeSentiments && window.sentiments.length > 0) {
+    const dominantSentiment = getMostFrequent(sentimentKeys)
+    const template = getSentimentTemplate(dominantSentiment)
 
-    if (isRelevant) {
-      console.log(`✅ Comentario de experto relevante detectado`)
-      
-      const severity = determineSeverity(expertComment)
-      const nearestEvent = getNearestEvent(expertComment.elapsedMsTotal)
-      const nearestEmotion = getNearestEmotion(expertComment.elapsedMsTotal)
-      const nearestSentiment = getNearestSentiment(expertComment.elapsedMsTotal)
+    const commentText = commentTexts[0] || window.sentiments[0]?.text || ''
+    const templateIdx = Math.floor(
+      Math.random() * template.descriptionTemplates.length,
+    )
+    const recIdx = Math.floor(
+      Math.random() * template.recommendationTemplates.length,
+    )
 
-      const nodeId = nearestEvent ? getNodeIdFromEvent(nearestEvent) : null
+    const description = template.descriptionTemplates[templateIdx]
+      .replace('{text}', commentText)
+      .replace('{context}', ` en "${nodeName}"`)
 
-      findings.push({
-        _tempId: `ec-${expertComment.commentId}`,
-        evaluationId,
-        sessionId,
-        taskId,
-        nodeId: nodeId,
-        version: nearestEvent?.version || '1.0',
-        type: 'problem',
-        description: `Experto identificó: ${expertComment.comment}`,
-        severity: severity,
-        frequency: 1,
-        impact: determineImpact(nearestEmotion, nearestSentiment),
-        priority: severity === 'critical' ? 'high' : severity === 'high' ? 'high' : 'medium',
-        recommendation: expertComment.commentType === 'recommendation' ? expertComment.comment : null,
-        status: 'pending',
-        emotionInferred: nearestEmotion?.dominantEmotion || nearestEmotion?.emotion || null,
-        textualSentiment: nearestSentiment?.uxLabel || null,
-        userComment: null,
-        expertComment: expertComment.comment,
-        userCommentId: null,
-        expertCommentId: expertComment.commentId,
-        aggregatedFrom: [expertComment.commentId],
-        occurrences: 1,
+    const recommendation = template.recommendationTemplates[recIdx].replace(
+      /{node}/g,
+      nodeName,
+    )
+
+    findings.push(
+      createFinding({
+        type: template.type,
+        severity: template.severity,
+        description,
+        recommendation,
+        source: 'sentiment',
+        confidence: window.sentiments[0]?.confidence || 0.7,
+        nodeId,
+        window,
+        evaluationId: data.evaluationId,
+        sessionId: data.sessionId || null,
+        taskId: data.taskId || null,
+        textualSentiment: dominantSentiment,
+        userComment: commentText,
+        eventType,
+        getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+      }),
+    )
+  }
+
+  // ============================================================
+  // REGLA 4: Solo comentario de usuario
+  // ============================================================
+  if (
+    config.includeUserComments &&
+    commentTexts.length > 0 &&
+    window.emotions.length === 0 &&
+    window.sentiments.length === 0
+  ) {
+    findings.push(
+      createFinding({
+        type: 'usability',
+        severity: 'medium',
+        description: `El usuario comentó: "${commentTexts[0]}" en la pantalla "${nodeName}".`,
+        recommendation: `Revisar el feedback del usuario y considerar mejoras en "${nodeName}".`,
+        source: 'user_comment',
+        confidence: 0.6,
+        nodeId,
+        window,
+        evaluationId: data.evaluationId,
+        sessionId: data.sessionId || null,
+        taskId: data.taskId || null,
+        userComment: commentTexts[0],
+        eventType,
+        getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+      }),
+    )
+  }
+
+  // ============================================================
+  // REGLA 5: Comentario de experto
+  // ============================================================
+  if (config.includeExpertComments && expertTexts.length > 0) {
+    const expertComment = window.expertComments[0]
+    findings.push(
+      createFinding({
+        type: 'expert',
+        severity: mapExpertSeverity(expertComment.severity),
+        description: expertComment.comment,
+        recommendation: `Atender observación del experto en "${nodeName}".`,
         source: 'expert_comment',
         confidence: 0.9,
-        relatedEvents: nearestEvent ? [nearestEvent] : [],
-        relatedEmotions: nearestEmotion ? [nearestEmotion] : [],
-        relatedSentiments: nearestSentiment ? [nearestSentiment] : [],
-        relatedComments: [],
-        relatedExpertComments: [expertComment],
-      })
+        nodeId,
+        window,
+        evaluationId: data.evaluationId,
+        sessionId: data.sessionId || null,
+        taskId: data.taskId || null,
+        expertComment: expertComment.comment,
+        expertCommentId: expertComment.commentId,
+        eventType,
+        getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+      }),
+    )
+  }
+
+  return findings
+}
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  function createFinding(params: {
+  type: string
+  severity: string
+  description: string
+  recommendation: string
+  source: string
+  confidence: number
+  nodeId: string | null
+  window: TimeWindow
+  evaluationId: string
+  sessionId: string | null
+  taskId: string | null
+  emotionInferred?: string
+  textualSentiment?: string
+  userComment?: string
+  expertComment?: string
+  expertCommentId?: string
+  eventType?: string
+  // ✅ NUEVO: función para obtener el sentimiento más cercano
+  getNearestSentiment?: (ms: number) => any
+}): GeneratedFinding {
+  const midMs = (params.window.startMs + params.window.endMs) / 2
+
+  // ✅ FIX: Si no vino sentimiento, buscar el más cercano en el tiempo
+  let finalSentiment = params.textualSentiment
+  let finalUserComment = params.userComment
+
+  if (!finalSentiment && params.getNearestSentiment) {
+    const nearest = params.getNearestSentiment(midMs)
+    if (nearest) {
+      // Solo si está razonablemente cerca (< 15s)
+      const diff = Math.abs((nearest.elapsedMsTotal || 0) - midMs)
+      if (diff <= 15000) {
+        finalSentiment = nearest.uxLabel || null
+        // Si no hay comentario, usar el texto del sentimiento
+        if (!finalUserComment && nearest.text) {
+          finalUserComment = nearest.text
+        }
+      }
     }
   }
 
-  console.log(`📊 Hallazgos de expertos generados: ${findings.length}`)
-  return findings
+  return {
+    _tempId: generateTempId(params.source),
+    evaluationId: params.evaluationId,
+    sessionId: params.sessionId,
+    taskId: params.taskId,
+    requirementId: null,
+    flowId: null,
+    nodeId: params.nodeId,
+    version: '1.0',
+    type: mapTypeToBackend(params.type) as any,
+    description: params.description,
+    severity: params.severity as any,
+    frequency: 1,
+    impact: mapSeverityToImpact(params.severity),
+    priority: mapSeverityToPriority(params.severity),
+    recommendation: params.recommendation,
+    status: 'pending',
+    emotionInferred: params.emotionInferred || null,
+    textualSentiment: finalSentiment || null,          // ✅ AHORA SÍ
+    userComment: finalUserComment || null,             // ✅ AHORA SÍ
+    expertComment: params.expertComment || null,
+    userCommentId: params.window.comments[0]?.commentId || null,
+    expertCommentId: params.expertCommentId || null,
+    aggregatedFrom: [],
+    occurrences: 1,
+    source: params.source as any,
+    confidence: params.confidence,
+    relatedEvents: [],
+    relatedEmotions: params.window.emotions,
+    relatedSentiments: params.window.sentiments,
+    relatedComments: params.window.comments,
+    relatedExpertComments: params.window.expertComments,
+  }
 }
 
-  /**
-   * Agrupa hallazgos similares
-   */
-  function groupSimilarFindings(findings: GeneratedFinding[]): GeneratedFinding[] {
-    const grouped: GeneratedFinding[] = []
-    const used = new Set<string>()
+  function getMostFrequent(arr: string[]): string {
+    if (!arr.length) return ''
+    const counts: Record<string, number> = {}
+    arr.forEach((item) => {
+      counts[item] = (counts[item] || 0) + 1
+    })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+  }
 
-    for (const finding of findings) {
-      if (used.has(finding._tempId)) continue
+  function mapSeverityToImpact(severity: string): 'high' | 'medium' | 'low' {
+    if (severity === 'critical' || severity === 'high') return 'high'
+    if (severity === 'medium') return 'medium'
+    return 'low'
+  }
 
-      const similar = findings.filter(f =>
-        !used.has(f._tempId) &&
-        f.nodeId === finding.nodeId &&
-        Math.abs(getEmotionMs(f.relatedEmotions[0]) - getEmotionMs(finding.relatedEmotions[0])) < 5000 &&
-        f.type === finding.type
-      )
+  function mapSeverityToPriority(severity: string): 'high' | 'medium' | 'low' {
+    if (severity === 'critical' || severity === 'high') return 'high'
+    if (severity === 'medium') return 'medium'
+    return 'low'
+  }
+
+  function mapExpertSeverity(severity: number | undefined): string {
+    if (!severity) return 'medium'
+    if (severity >= 5) return 'critical'
+    if (severity >= 4) return 'high'
+    if (severity >= 3) return 'medium'
+    if (severity >= 2) return 'low'
+    return 'info'
+  }
+
+  // ============================================================
+  // DEDUPLICAR
+  // ============================================================
+  function deduplicateFindings(findings: GeneratedFinding[]): GeneratedFinding[] {
+    const result: GeneratedFinding[] = []
+    const used = new Set<number>()
+
+    for (let i = 0; i < findings.length; i++) {
+      if (used.has(i)) continue
+
+      const current = findings[i]
+      const similar: number[] = [i]
+
+      for (let j = i + 1; j < findings.length; j++) {
+        if (used.has(j)) continue
+        const other = findings[j]
+
+        const sameNode = current.nodeId === other.nodeId
+        const sameType = current.type === other.type
+        const sameSource = current.source === other.source
+
+        if (sameNode && sameType && sameSource) {
+          similar.push(j)
+        }
+      }
 
       if (similar.length > 1) {
-        // Combinar hallazgos similares
-        const combined = { ...finding }
-        combined.frequency = similar.reduce((sum, f) => sum + f.frequency, 0)
-        combined.occurrences = similar.length
-        combined.aggregatedFrom = similar.flatMap(f => f.aggregatedFrom || [])
-        combined.relatedEvents = similar.flatMap(f => f.relatedEvents)
-        combined.relatedEmotions = similar.flatMap(f => f.relatedEmotions)
-        combined.relatedSentiments = similar.flatMap(f => f.relatedSentiments)
-        combined.relatedComments = similar.flatMap(f => f.relatedComments)
-        combined.relatedExpertComments = similar.flatMap(f => f.relatedExpertComments)
-        combined.confidence = combined.confidence * (1 + (similar.length - 1) * 0.1)
+        const merged = { ...current }
+        merged.frequency = similar.length
+        merged.occurrences = similar.length
+        merged.confidence = Math.min(0.99, current.confidence * (1 + (similar.length - 1) * 0.1))
 
-        // Actualizar severidad basada en frecuencia
-        if (combined.frequency > 3) {
-          combined.severity = 'high'
-        } else if (combined.frequency > 1) {
-          combined.severity = 'medium'
-        }
-
-        similar.forEach(f => used.add(f._tempId))
-        grouped.push(combined)
+        similar.forEach((idx) => used.add(idx))
+        result.push(merged)
       } else {
-        used.add(finding._tempId)
-        grouped.push(finding)
+        used.add(i)
+        result.push(current)
       }
     }
 
-    return grouped
-  }
-
-  // ============================================================
-  // FUNCIONES DE CÁLCULO
-  // ============================================================
-
-  function getEmotionMs(emotion: any): number {
-    return emotion?.elapsedMsTotal ?? emotion?.elapsedMs ?? 0
-  }
-
-  function determineSeverity(emotion: any, sentiment: any, text: string): 'critical' | 'high' | 'medium' | 'low' | 'info' {
-    // Basado en emociones
-    if (emotion) {
-      const label = emotion.dominantEmotion || emotion.emotion || ''
-      if (['anger', 'frustration'].some(e => label.includes(e))) return 'high'
-      if (['confusion', 'anxiety'].some(e => label.includes(e))) return 'medium'
-      if (['disappointment', 'sadness'].some(e => label.includes(e))) return 'low'
-    }
-
-    // Basado en sentimientos
-    if (sentiment) {
-      const label = sentiment.uxLabel || sentiment.sentiment || ''
-      if (label.includes('critical') || label.includes('severe')) return 'critical'
-      if (label.includes('frustration') || label.includes('difficulty')) return 'high'
-      if (label.includes('confusion')) return 'medium'
-    }
-
-    // Basado en texto
-    if (text) {
-      const lower = text.toLowerCase()
-      if (lower.includes('no funciona') || lower.includes('error grave')) return 'critical'
-      if (lower.includes('confuso') || lower.includes('difícil')) return 'medium'
-      if (lower.includes('lento') || lower.includes('tarda')) return 'low'
-    }
-
-    return 'medium'
-  }
-
-  function determineImpact(emotion: any, sentiment: any): 'high' | 'medium' | 'low' {
-    if (emotion) {
-      const label = emotion.dominantEmotion || emotion.emotion || ''
-      if (['anger', 'frustration'].some(e => label.includes(e))) return 'high'
-      if (['confusion', 'anxiety'].some(e => label.includes(e))) return 'medium'
-    }
-    if (sentiment) {
-      const label = sentiment.uxLabel || sentiment.sentiment || ''
-      if (label.includes('critical')) return 'high'
-      if (label.includes('frustration')) return 'medium'
-    }
-    return 'medium'
-  }
-
-  function calculateConfidence(emotion: any, sentiment: any): number {
-    let confidence = 0.5
-    if (emotion?.confidence) confidence = Math.max(confidence, emotion.confidence)
-    if (sentiment?.confidence) confidence = Math.max(confidence, sentiment.confidence)
-    return Math.min(1, confidence + 0.2)
-  }
-
-  function generateRecommendation(type: string, data: string, emotion: any): string {
-    const recommendations: Record<string, string[]> = {
-      usability: [
-        'Simplificar la interfaz para reducir la confusión del usuario',
-        'Agregar indicadores visuales más claros',
-        'Mejorar la retroalimentación del sistema',
-        'Reducir el número de pasos necesarios',
-      ],
-      emotional: [
-        'Rediseñar la experiencia para reducir la frustración del usuario',
-        'Agregar mensajes de ayuda contextual',
-        'Mejorar el flujo de navegación',
-        'Proveer retroalimentación positiva inmediata',
-      ],
-      sentiment: [
-        'Abordar las preocupaciones del usuario sobre la usabilidad',
-        'Mejorar la claridad de la información presentada',
-        'Optimizar el rendimiento de la aplicación',
-        'Agregar tutoriales o guías introductorias',
-      ],
-    }
-
-    const list = recommendations[type] || recommendations.usability
-    return list[Math.floor(Math.random() * list.length)]
+    return result
   }
 
   // ============================================================
   // GENERACIÓN PRINCIPAL
   // ============================================================
+  async function generateFindings(
+    data: TimelineData,
+    config: Partial<FindingGenerationConfig> = {},
+  ): Promise<GeneratedFinding[]> {
+    isGenerating.value = true
+    generationProgress.value = 0
 
-async function generateFindings(data: TimelineData, config: Partial<FindingGenerationConfig> = {}): Promise<GeneratedFinding[]> {
-  isGenerating.value = true
-  generationProgress.value = 0
+    try {
+      const cfg: FindingGenerationConfig = { ...defaultConfig, ...config }
 
-  try {
-    console.log('📡 ========== INICIO GENERACIÓN HALLAZGOS ==========')
-    console.log('📌 Datos recibidos:')
-    console.log('  - events:', data.events?.length || 0)
-    console.log('  - emotionReadings:', data.emotionReadings?.length || 0)
-    console.log('  - sentiments:', data.sentiments?.length || 0)
-    console.log('  - comments:', data.comments?.length || 0)
-    console.log('  - expertComments:', data.expertComments?.length || 0)
-    console.log('  - durationMs:', data.durationMs)
-    console.log('  - evaluationId:', data.evaluationId)
-    console.log('  - sessionId:', data.sessionId)
-    console.log('  - taskId:', data.taskId)
-    console.log('  - getEmotionLabel:', typeof data.getEmotionLabel)
-    console.log('  - getNodeIdFromEvent:', typeof data.getNodeIdFromEvent)
-    
-    // ✅ Verificar que las funciones existen
-    if (typeof data.getEmotionLabel !== 'function') {
-      console.error('❌ getEmotionLabel NO es una función')
-    }
-    if (typeof data.getNodeIdFromEvent !== 'function') {
-      console.error('❌ getNodeIdFromEvent NO es una función')
-    }
-    if (typeof data.getNearestEvent !== 'function') {
-      console.error('❌ getNearestEvent NO es una función')
-    }
-    if (typeof data.getNearestEmotion !== 'function') {
-      console.error('❌ getNearestEmotion NO es una función')
-    }
-    if (typeof data.getNearestComment !== 'function') {
-      console.error('❌ getNearestComment NO es una función')
-    }
-    if (typeof data.getNearestSentiment !== 'function') {
-      console.error('❌ getNearestSentiment NO es una función')
-    }
+      // 1. Filtrar emociones significativas (solo cambios)
+      const significantEmotions = filterSignificantEmotionChanges(
+        data.emotionReadings || [],
+        cfg.emotionChangeThreshold,
+      )
+      generationProgress.value = 20
 
-    const finalConfig = { ...defaultConfig, ...config }
-
-    const allFindings: GeneratedFinding[] = []
-
-    // 🔍 PROBAR CADA DETECTOR INDIVIDUALMENTE
-
-    // 1. Emociones
-    if (finalConfig.includeEmotions && data.emotionReadings?.length > 0) {
-      console.log('🔍 Ejecutando detector de emociones...')
-      console.log('  - Lecturas de emociones:', data.emotionReadings.length)
-      console.log('  - Primera emoción:', JSON.stringify(data.emotionReadings[0], null, 2))
-      
-      const emotionalFindings = detectEmotionalIssues(data)
-      console.log(`  - Hallazgos emocionales encontrados: ${emotionalFindings.length}`)
-      allFindings.push(...emotionalFindings)
-      generationProgress.value = 25
-    } else {
-      console.log('⚠️ Detector de emociones saltado (sin datos o desactivado)')
-    }
-
-    // 2. Sentimientos
-    if (finalConfig.includeSentiments && data.sentiments?.length > 0) {
-      console.log('🔍 Ejecutando detector de sentimientos...')
-      console.log('  - Sentimientos:', data.sentiments.length)
-      console.log('  - Primer sentimiento:', JSON.stringify(data.sentiments[0], null, 2))
-      
-      const sentimentFindings = detectSentimentIssues(data)
-      console.log(`  - Hallazgos de sentimiento encontrados: ${sentimentFindings.length}`)
-      allFindings.push(...sentimentFindings)
+      // 2. Agrupar en ventanas
+      const windows = groupByTimeWindows(
+        cfg.includeEmotions ? significantEmotions : [],
+        cfg.includeSentiments ? data.sentiments || [] : [],
+        cfg.includeUserComments ? data.comments || [] : [],
+        cfg.includeExpertComments ? data.expertComments || [] : [],
+        cfg.maxTimeGap,
+      )
       generationProgress.value = 50
-    } else {
-      console.log('⚠️ Detector de sentimientos saltado (sin datos o desactivado)')
+
+      // 3. Generar hallazgos por ventana
+      const allFindings: GeneratedFinding[] = []
+      for (const window of windows) {
+        const windowFindings = generateFindingsFromWindow(window, data, cfg)
+        allFindings.push(...windowFindings)
+      }
+      generationProgress.value = 80
+
+      // 4. Deduplicar
+      const deduplicated = deduplicateFindings(allFindings)
+
+      // 5. Filtrar por confianza
+      const filtered = deduplicated.filter((f) => f.confidence >= cfg.minConfidence)
+
+      generationProgress.value = 100
+      generatedFindings.value = filtered
+      return filtered
+    } catch (error) {
+      console.error('❌ Error generando hallazgos:', error)
+      throw error
+    } finally {
+      isGenerating.value = false
     }
-
-    // 3. Comentarios de usuario
-    if (finalConfig.includeUserComments && data.comments?.length > 0) {
-      console.log('🔍 Ejecutando detector de comentarios de usuario...')
-      console.log('  - Comentarios:', data.comments.length)
-      console.log('  - Primer comentario:', JSON.stringify(data.comments[0], null, 2))
-      
-      const userCommentFindings = detectUserCommentIssues(data)
-      console.log(`  - Hallazgos de comentarios encontrados: ${userCommentFindings.length}`)
-      allFindings.push(...userCommentFindings)
-      generationProgress.value = 75
-    } else {
-      console.log('⚠️ Detector de comentarios de usuario saltado (sin datos o desactivado)')
-    }
-
-    // 4. Comentarios de experto
-    if (finalConfig.includeExpertComments && data.expertComments?.length > 0) {
-      console.log('🔍 Ejecutando detector de comentarios de experto...')
-      console.log('  - Comentarios de experto:', data.expertComments.length)
-      console.log('  - Primer comentario experto:', JSON.stringify(data.expertComments[0], null, 2))
-      
-      const expertFindings = detectExpertIssues(data)
-      console.log(`  - Hallazgos de experto encontrados: ${expertFindings.length}`)
-      allFindings.push(...expertFindings)
-      generationProgress.value = 90
-    } else {
-      console.log('⚠️ Detector de comentarios de experto saltado (sin datos o desactivado)')
-    }
-
-    console.log(`📊 Total hallazgos antes de agrupar: ${allFindings.length}`)
-    if (allFindings.length > 0) {
-      console.log('📋 Hallazgos encontrados:', allFindings.map(f => ({
-        type: f.type,
-        description: f.description,
-        source: f.source,
-        confidence: f.confidence
-      })))
-    }
-
-    // 2. Agrupar hallazgos similares
-    const groupedFindings = groupSimilarFindings(allFindings)
-    console.log(`📊 Hallazgos después de agrupar: ${groupedFindings.length}`)
-
-    // 3. Filtrar por confianza mínima
-    const filtered = groupedFindings.filter(f =>
-      f.confidence >= finalConfig.minConfidence
-    )
-    console.log(`📊 Hallazgos después de filtrar (confianza >= ${finalConfig.minConfidence}): ${filtered.length}`)
-
-    generationProgress.value = 100
-    generatedFindings.value = filtered
-
-    console.log('✅ Generación completada. Hallazgos:', filtered.length)
-    console.log('📡 ========== FIN GENERACIÓN HALLAZGOS ==========')
-
-    return filtered
-  } catch (error) {
-    console.error('❌ Error generating findings:', error)
-    console.error('❌ Stack:', error.stack)
-    throw error
-  } finally {
-    isGenerating.value = false
   }
-}
 
   return {
     isGenerating,
     generatedFindings,
     generationProgress,
-    generateFindings,  
-    
+    generateFindings,
   }
 }

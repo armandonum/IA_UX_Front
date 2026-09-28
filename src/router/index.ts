@@ -143,6 +143,19 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, roles: ['Experto UX', 'Administrador'] },
       },
 
+
+
+      /// -------- reportes ---------------___________
+      {
+  path: '/reports/formal',
+  name: 'FormalReports',
+  component: () => import('@/views/reports/FormalReportsView.vue'),
+  meta: {
+    requiresAuth: true,
+    roles: ['Coordinador', 'Docente', 'Administrador', 'Experto UX'],
+  },
+},
+
       // ── Moderador ─────────────────────────────────────────────────────────
       {
         path: 'moderador',

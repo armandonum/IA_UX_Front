@@ -146,6 +146,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import FindingsQuickForm from '@/components/findings/FindingsQuickForm.vue'
+import { getEmotionTemplate } from '@/types/expert/findings.dictionary'
 
 const props = defineProps<{
   currentTime: number
@@ -214,21 +215,13 @@ function traducirEvento(eventType: string | undefined): string {
   return traduccionesEventos[eventType] || eventType.replace(/_/g, ' ').toLowerCase()
 }
 
-const emotionLabelsEs: Record<string, string> = {
-  happy: '🙂 Felicidad',
-  sad: '🙁 Tristeza',
-  angry: '😠 Enojo',
-  surprise: '😮 Sorpresa',
-  disgust: '😖 Asco',
-  fear: '😨 Miedo',
-  neutral: '😐 Neutral',
-}
+
 
 function traducirEmocion(emocion: string): string {
   if (!emocion || emocion === '—') return '—'
-  return emotionLabelsEs[emocion.toLowerCase()] || emocion
+  const tpl = getEmotionTemplate(emocion.toLowerCase())
+  return `${tpl.emoji} ${tpl.labelEs}`
 }
-
 function getSentimentColor(label: string): string {
   const colors: Record<string, string> = {
     'Confusión': 'orange',

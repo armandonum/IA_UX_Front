@@ -120,16 +120,23 @@ const allNavItems: NavItem[] = [
 
   { to: '/coordinador/projects', icon: 'folder', label: 'Proyectos', roles: ['Coordinador', 'Administrador'] },
 
-
+// reportes 
+{
+  to: '/reports/formal',
+  icon: 'analytics',
+  label: 'Reportes Formales',
+  roles: ['Coordinador', 'Docente', 'Administrador','Experto UX'],
+},
 
   { to: '/Coordinador', icon: 'assignment', label: 'Método Cognitivo', roles: ['Coordinador', 'Administrador'] },
   { 
-  to: '/coordinador/heuristico', 
+  to: '/Coordinador/Heuristico', 
   icon: 'fact_check', 
   label: 'Método Heurístico', 
   roles: ['Coordinador', 'Administrador'] 
 },  
   
+
     
   { to: '/docente', icon: 'school', label: 'Mi Clase', roles: ['Docente', 'Administrador'] },
 
@@ -155,8 +162,23 @@ const allNavItems: NavItem[] = [
 const filteredNav = computed(() =>
   allNavItems.filter(item => !item.roles || item.roles.includes(role.value ?? ''))
 )
-
 function isActive(path: string) {
-  return route.path === path || (path !== '/dashboard' && route.path.startsWith(path))
+  // 🔥 Coincidencia EXACTA primero
+  if (route.path === path) return true
+
+  // 🔥 Para rutas anidadas, verificar que el prefijo coincida Y que no haya otra ruta más específica
+  if (path !== '/dashboard' && route.path.startsWith(path + '/')) {
+    // Verificar que no exista un item MÁS ESPECÍFICO que también coincida
+    const moreSpecific = filteredNav.value.find(item => {
+      if (item.to === path) return false
+      if (!item.to.startsWith(path)) return false
+      return route.path === item.to || route.path.startsWith(item.to + '/')
+    })
+
+    // Solo marcar activo si NO hay una ruta más específica
+    return !moreSpecific
+  }
+
+  return false
 }
 </script>

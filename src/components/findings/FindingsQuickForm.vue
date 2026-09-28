@@ -253,7 +253,6 @@ const close = () => {
   visible.value = false
   emit('close')
 }
-
 const save = async () => {
   if (!form.value.type || !form.value.description) return
 
@@ -271,21 +270,27 @@ const save = async () => {
       priority: form.value.priority,
       recommendation: form.value.recommendation || null,
       expertComment: form.value.expertComment || null,
+
+      // ✅ Contexto afectivo (ambos por separado)
       emotionInferred: props.emotionLabel || null,
       textualSentiment: props.sentimentLabel || null,
+
+      // ✅ Comentario cercano
       userComment: props.nearestComment?.text || null,
       userCommentId: props.nearestComment?.commentId || null,
+
       status: 'pending',
       frequency: 1,
     }
-    
+
+    console.log('📤 Guardando hallazgo con datos:', data)
+
     emit('save', data)
     close()
   } finally {
     loading.value = false
   }
 }
-
 // Helpers
 const traduccionesEventos: Record<string, string> = {
   'INITIAL_LOAD': 'Carga inicial',

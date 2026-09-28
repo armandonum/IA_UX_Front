@@ -1,277 +1,680 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Heatmap Animado</title>
 
-  <title>Visor de Heatmap</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+        body {
+            margin: 0;
+            background: #111827;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
 
-    body {
-      margin: 0;
-      padding: 30px;
-      font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      color: #1e293b;
-    }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+        h1 {
+            margin-top: 0;
+        }
 
-    h1 {
-      margin-bottom: 10px;
-    }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #1f2937;
+            border-radius: 10px;
+        }
 
-    .description {
-      color: #64748b;
-      margin-bottom: 25px;
-    }
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
 
-    textarea {
-      width: 100%;
-      height: 300px;
-      padding: 15px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 13px;
-      resize: vertical;
-      background: white;
-    }
+        label {
+            font-size: 13px;
+            color: #d1d5db;
+        }
 
-    button {
-      margin-top: 15px;
-      padding: 12px 22px;
-      border: none;
-      border-radius: 8px;
-      background: #1e3a8a;
-      color: white;
-      font-size: 15px;
-      cursor: pointer;
-    }
+        input[type="file"] {
+            max-width: 250px;
+        }
 
-    button:hover {
-      background: #172554;
-    }
+        input[type="range"] {
+            width: 160px;
+        }
 
-    .error {
-      margin-top: 15px;
-      padding: 12px;
-      background: #fee2e2;
-      color: #991b1b;
-      border-radius: 8px;
-      display: none;
-    }
+        button {
+            border: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
 
-    .result {
-      margin-top: 30px;
-      padding: 20px;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    }
+        button:hover {
+            background: #1d4ed8;
+        }
 
-    .result img {
-      display: block;
-      max-width: 100%;
-      height: auto;
-      margin: 20px auto 0;
-      border: 1px solid #e2e8f0;
-    }
+        .viewer {
+            position: relative;
+            width: 100%;
+            background: black;
+            border-radius: 10px;
+            overflow: hidden;
+        }
 
-    .info {
-      color: #64748b;
-      font-size: 14px;
-    }
+        video {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: 75vh;
+            object-fit: contain;
+        }
 
-    .download {
-      display: inline-block;
-      margin-top: 15px;
-      padding: 10px 18px;
-      background: #0f766e;
-      color: white;
-      text-decoration: none;
-      border-radius: 7px;
-    }
-  </style>
+        #heatmap {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .info {
+            margin-top: 15px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .value {
+            color: white;
+            font-weight: bold;
+        }
+    </style>
 </head>
 
 <body>
 
 <div class="container">
 
-  <h1>🔥 Visor de Heatmap</h1>
+    <h1>🔥 Heatmap animado sobre video</h1>
 
-  <p class="description">
-    Pega aquí el contenido del array <strong>data</strong> que devuelve tu API.
-  </p>
+    <div class="controls">
 
-  <textarea id="imageData" placeholder="Pega aquí:
+        <div class="control">
+            <label>Video MP4 / WebM</label>
+            <input
+                id="videoFile"
+                type="file"
+                accept="video/mp4,video/webm"
+            >
+        </div>
 
-137,
-80,
-78,
-71,
-13,
-10,
-26,
-10,
-...
+        <div class="control">
+            <label>
+                Puntos calientes:
+                <span id="pointsValue" class="value">8</span>
+            </label>
 
-"></textarea>
+            <input
+                id="points"
+                type="range"
+                min="1"
+                max="30"
+                value="8"
+            >
+        </div>
 
-  <br>
+        <div class="control">
+            <label>
+                Radio:
+                <span id="radiusValue" class="value">90</span>
+            </label>
 
-  <button onclick="mostrarImagen()">
-    Mostrar imagen
-  </button>
+            <input
+                id="radius"
+                type="range"
+                min="30"
+                max="200"
+                value="90"
+            >
+        </div>
 
-  <div id="error" class="error"></div>
+        <div class="control">
+            <label>
+                Intensidad:
+                <span id="intensityValue" class="value">0.75</span>
+            </label>
 
-  <div id="resultado" class="result" style="display: none;">
+            <input
+                id="intensity"
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value="0.75"
+            >
+        </div>
 
-    <div class="info">
-      Imagen PNG generada correctamente.
+        <div class="control">
+            <label>
+                Velocidad:
+                <span id="speedValue" class="value">1</span>
+            </label>
+
+            <input
+                id="speed"
+                type="range"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value="1"
+            >
+        </div>
+
+        <button id="reset">
+            Reiniciar puntos
+        </button>
+
     </div>
 
-    <img id="heatmapImage" alt="Heatmap generado">
+    <div class="viewer">
 
-    <br>
+        <video
+            id="video"
+            controls
+            playsinline
+        ></video>
 
-    <a
-      id="downloadLink"
-      class="download"
-      download="heatmap.png"
-    >
-      Descargar PNG
-    </a>
+        <canvas id="heatmap"></canvas>
 
-  </div>
+    </div>
+
+    <div class="info">
+        Selecciona un video para comenzar.
+        El mapa de calor se genera y anima directamente sobre el video.
+    </div>
 
 </div>
 
 
 <script>
 
-function mostrarImagen() {
+const video = document.getElementById("video");
+const canvas = document.getElementById("heatmap");
+const ctx = canvas.getContext("2d");
 
-  const textarea = document.getElementById("imageData");
-  const error = document.getElementById("error");
-  const resultado = document.getElementById("resultado");
-  const imagen = document.getElementById("heatmapImage");
-  const downloadLink = document.getElementById("downloadLink");
+const fileInput = document.getElementById("videoFile");
 
-  error.style.display = "none";
-  resultado.style.display = "none";
+const pointsSlider = document.getElementById("points");
+const radiusSlider = document.getElementById("radius");
+const intensitySlider = document.getElementById("intensity");
+const speedSlider = document.getElementById("speed");
 
-  try {
+const pointsValue = document.getElementById("pointsValue");
+const radiusValue = document.getElementById("radiusValue");
+const intensityValue = document.getElementById("intensityValue");
+const speedValue = document.getElementById("speedValue");
 
-    let texto = textarea.value.trim();
+const resetButton = document.getElementById("reset");
 
-    if (!texto) {
-      throw new Error("Debes pegar el array de bytes.");
+let heatPoints = [];
+
+let animationId = null;
+
+let lastTime = performance.now();
+
+
+// ---------------------------------------------------------
+// CARGAR VIDEO
+// ---------------------------------------------------------
+
+fileInput.addEventListener("change", function () {
+
+    const file = this.files[0];
+
+    if (!file) {
+        return;
     }
 
-    /*
-     * Permitimos que pegues:
-     *
-     * 137, 80, 78, 71
-     *
-     * o incluso:
-     *
-     * [
-     *   137,
-     *   80,
-     *   78,
-     *   71
-     * ]
-     */
+    const url = URL.createObjectURL(file);
 
-    texto = texto
-      .replace(/^\s*\[/, "")
-      .replace(/\]\s*$/, "");
+    video.src = url;
 
-    const numeros = texto
-      .split(",")
-      .map(numero => numero.trim())
-      .filter(numero => numero !== "")
-      .map(numero => Number(numero));
+    video.load();
 
-    if (numeros.length === 0) {
-      throw new Error("No se encontraron números.");
-    }
+    video.addEventListener(
+        "loadedmetadata",
+        () => {
 
-    /*
-     * Validamos que sean bytes válidos
-     */
+            resizeCanvas();
 
-    for (const numero of numeros) {
+            generatePoints();
 
-      if (
-        !Number.isInteger(numero) ||
-        numero < 0 ||
-        numero > 255
-      ) {
-        throw new Error(
-          "El array contiene un valor inválido: " + numero
-        );
-      }
-
-    }
-
-    /*
-     * Convertimos los números a bytes
-     */
-
-    const bytes = new Uint8Array(numeros);
-
-    /*
-     * Creamos el archivo PNG
-     */
-
-    const blob = new Blob(
-      [bytes],
-      {
-        type: "image/png"
-      }
+        },
+        {
+            once: true
+        }
     );
 
-    /*
-     * Creamos una URL temporal
-     */
+});
 
-    const url = URL.createObjectURL(blob);
 
-    /*
-     * Mostramos la imagen
-     */
+// ---------------------------------------------------------
+// AJUSTAR CANVAS
+// ---------------------------------------------------------
 
-    imagen.src = url;
+function resizeCanvas() {
 
-    /*
-     * Configuramos descarga
-     */
+    const rect = video.getBoundingClientRect();
 
-    downloadLink.href = url;
-
-    resultado.style.display = "block";
-
-  } catch (e) {
-
-    error.textContent =
-      "❌ Error: " + e.message;
-
-    error.style.display = "block";
-
-  }
+    canvas.width = video.videoWidth || rect.width;
+    canvas.height = video.videoHeight || rect.height;
 
 }
+
+
+// ---------------------------------------------------------
+// CREAR PUNTOS
+// ---------------------------------------------------------
+
+function generatePoints() {
+
+    heatPoints = [];
+
+    const count = Number(pointsSlider.value);
+
+    for (let i = 0; i < count; i++) {
+
+        heatPoints.push({
+
+            // posición normalizada
+            x: 0.15 + Math.random() * 0.70,
+            y: 0.15 + Math.random() * 0.70,
+
+            // posición objetivo
+            targetX: 0.15 + Math.random() * 0.70,
+            targetY: 0.15 + Math.random() * 0.70,
+
+            // velocidad de movimiento
+            speed: 0.15 + Math.random() * 0.45,
+
+            // fase individual
+            phase: Math.random() * Math.PI * 2,
+
+            // intensidad individual
+            intensity:
+                0.6 +
+                Math.random() * 0.4,
+
+            // tiempo hasta cambiar objetivo
+            changeTime:
+                1 +
+                Math.random() * 4
+
+        });
+
+    }
+
+}
+
+
+// ---------------------------------------------------------
+// CAMBIAR OBJETIVOS
+// ---------------------------------------------------------
+
+function updatePoint(point, delta) {
+
+    point.changeTime -= delta;
+
+    if (point.changeTime <= 0) {
+
+        point.targetX =
+            0.10 +
+            Math.random() * 0.80;
+
+        point.targetY =
+            0.10 +
+            Math.random() * 0.80;
+
+        point.changeTime =
+            1.5 +
+            Math.random() * 4;
+
+    }
+
+
+    const dx = point.targetX - point.x;
+    const dy = point.targetY - point.y;
+
+    const distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    if (distance > 0.001) {
+
+        const movement =
+            point.speed *
+            delta *
+            Number(speedSlider.value);
+
+        point.x +=
+            (dx / distance) *
+            movement;
+
+        point.y +=
+            (dy / distance) *
+            movement;
+
+    }
+
+}
+
+
+// ---------------------------------------------------------
+// GRADIENTE DEL MAPA DE CALOR
+// ---------------------------------------------------------
+
+function drawHeatPoint(
+    x,
+    y,
+    radius,
+    intensity
+) {
+
+    const gradient =
+        ctx.createRadialGradient(
+            x,
+            y,
+            0,
+            x,
+            y,
+            radius
+        );
+
+
+    /*
+        El gradiente tiene varias zonas:
+
+        centro:
+        rojo / amarillo
+
+        medio:
+        naranja
+
+        exterior:
+        transparente
+    */
+
+    gradient.addColorStop(
+        0,
+        `rgba(255, 0, 0, ${intensity})`
+    );
+
+    gradient.addColorStop(
+        0.20,
+        `rgba(255, 40, 0, ${intensity * 0.9})`
+    );
+
+    gradient.addColorStop(
+        0.40,
+        `rgba(255, 150, 0, ${intensity * 0.75})`
+    );
+
+    gradient.addColorStop(
+        0.60,
+        `rgba(255, 230, 0, ${intensity * 0.55})`
+    );
+
+    gradient.addColorStop(
+        0.80,
+        `rgba(0, 255, 100, ${intensity * 0.25})`
+    );
+
+    gradient.addColorStop(
+        1,
+        `rgba(0, 255, 0, 0)`
+    );
+
+
+    ctx.fillStyle = gradient;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y,
+        radius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+}
+
+
+// ---------------------------------------------------------
+// ANIMACIÓN
+// ---------------------------------------------------------
+
+function animate(now) {
+
+    animationId =
+        requestAnimationFrame(animate);
+
+
+    const delta =
+        Math.min(
+            (now - lastTime) / 1000,
+            0.05
+        );
+
+    lastTime = now;
+
+
+    if (!video.videoWidth) {
+        return;
+    }
+
+
+    // limpiar canvas
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    const radius =
+        Number(radiusSlider.value);
+
+    const intensity =
+        Number(intensitySlider.value);
+
+
+    // actualizar puntos
+
+    heatPoints.forEach(point => {
+
+        updatePoint(
+            point,
+            delta
+        );
+
+        /*
+         * Pulsación suave.
+         * Hace que el mapa parezca vivo.
+         */
+
+        point.phase +=
+            delta *
+            Number(speedSlider.value);
+
+        const pulse =
+            0.85 +
+            Math.sin(point.phase * 2) *
+            0.15;
+
+
+        const x =
+            point.x *
+            canvas.width;
+
+        const y =
+            point.y *
+            canvas.height;
+
+
+        drawHeatPoint(
+            x,
+            y,
+            radius,
+            intensity *
+            point.intensity *
+            pulse
+        );
+
+    });
+
+}
+
+
+// ---------------------------------------------------------
+// EVENTOS
+// ---------------------------------------------------------
+
+pointsSlider.addEventListener(
+    "input",
+    () => {
+
+        pointsValue.textContent =
+            pointsSlider.value;
+
+        generatePoints();
+
+    }
+);
+
+
+radiusSlider.addEventListener(
+    "input",
+    () => {
+
+        radiusValue.textContent =
+            radiusSlider.value;
+
+    }
+);
+
+
+intensitySlider.addEventListener(
+    "input",
+    () => {
+
+        intensityValue.textContent =
+            intensitySlider.value;
+
+    }
+);
+
+
+speedSlider.addEventListener(
+    "input",
+    () => {
+
+        speedValue.textContent =
+            speedSlider.value;
+
+    }
+);
+
+
+resetButton.addEventListener(
+    "click",
+    () => {
+
+        generatePoints();
+
+    }
+);
+
+
+// ---------------------------------------------------------
+// VIDEO
+// ---------------------------------------------------------
+
+video.addEventListener(
+    "play",
+    () => {
+
+        lastTime =
+            performance.now();
+
+        if (!animationId) {
+
+            animationId =
+                requestAnimationFrame(
+                    animate
+                );
+
+        }
+
+    }
+);
+
+
+video.addEventListener(
+    "pause",
+    () => {
+
+        /*
+         * No detenemos completamente
+         * el canvas para que el último
+         * estado quede visible.
+         */
+
+    }
+);
+
+
+video.addEventListener(
+    "loadedmetadata",
+    resizeCanvas
+);
+
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+
+// iniciar animación
+
+animationId =
+    requestAnimationFrame(
+        animate
+);
 
 </script>
 

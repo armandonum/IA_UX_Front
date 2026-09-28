@@ -10,7 +10,7 @@
       margin-top:18px;
       border-radius:14px;
       z-index:50;
-      max-width:90%;
+      max-width:50%;
     "
   >
     <q-card-section horizontal class="items-center q-gutter-sm q-px-md q-py-sm">
