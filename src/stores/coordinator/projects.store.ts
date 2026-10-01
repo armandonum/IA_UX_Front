@@ -39,6 +39,7 @@ export const useProjectsStore = defineStore('projects', () => {
   async function createProject(payload: {
     fileKey: string
     projectName: string
+    publicUrl?: string 
     lastModified: string
     version: string
     thumbnailUrl: string

@@ -1,3 +1,4 @@
+<!-- FigamProjectFormDialog.vue -->
 <template>
   <q-dialog
     :model-value="modelValue"
@@ -28,11 +29,40 @@
           />
 
           <q-input
-            v-model="form.projectName"
-            filled
-            label="Nombre del proyecto"
-            hint="Puede modificarse antes de guardar"
-          />
+  v-model="form.projectName"
+  filled
+  label="Nombre del proyecto"
+  hint="Puede modificarse antes de guardar"
+/>
+
+<!-- 🆕 NUEVO: URL pública del prototipo -->
+<q-input
+  v-model="form.publicUrl"
+  filled
+  label="URL pública del prototipo (opcional)"
+  hint="Ej: https://www.figma.com/proto/abc123/Prototipo?node-id=1-2"
+  :rules="[
+    (v) => !v || /^https?:\/\/.+/.test(v) || 'Debe ser una URL válida'
+  ]"
+>
+  <template v-slot:prepend>
+    <q-icon name="link" />
+  </template>
+  <template v-slot:append v-if="form.publicUrl">
+    <q-btn
+      flat
+      dense
+      round
+      size="sm"
+      icon="open_in_new"
+      color="primary"
+      :href="form.publicUrl"
+      target="_blank"
+    >
+      <q-tooltip>Abrir en nueva pestaña</q-tooltip>
+    </q-btn>
+  </template>
+</q-input>
 
           <q-separator />
 
@@ -60,6 +90,13 @@
             readonly
             label="Thumbnail"
           />
+          <q-input
+  v-if="preview.publicUrl"
+  v-model="preview.publicUrl"
+  filled
+  readonly
+  label="URL pública detectada"
+/>
 
           <q-img
             v-if="preview.thumbnailUrl"
@@ -130,11 +167,12 @@ const required = (val: string) => !!val || 'Campo obligatorio'
 const creating = ref(false)
 const loadingFile = ref(false)
 
-const form = reactive({ fileKey: '', projectName: '' })
+const form = reactive({ fileKey: '', projectName: '',publicUrl: '' })
 const preview = reactive({ 
   version: '', 
   lastModified: '', 
   thumbnailUrl: '',
+  publicUrl: '',
   rawJson: null,
 })
 
@@ -146,6 +184,7 @@ const semesterName = computed(() => {
 function resetForm() {
   form.fileKey = ''
   form.projectName = ''
+  form.publicUrl = ''
 
   preview.version = ''
   preview.lastModified = ''
@@ -156,6 +195,7 @@ function resetForm() {
 function prefillFromRow(row: FigmaProject) {
   form.fileKey = row.fileKey
   form.projectName = row.projectName
+  form.publicUrl = row.publicUrl ?? ''
 
   preview.version = row.version ?? ''
   preview.lastModified = row.lastModified ?? ''
@@ -207,6 +247,11 @@ async function loadFigmaFile() {
     preview.lastModified = file.metadata.lastModified
     preview.thumbnailUrl = file.metadata.thumbnailUrl
     preview.rawJson = file.raw
+      
+    if (!form.publicUrl && (file.metadata as any).publicUrl) {
+  form.publicUrl = (file.metadata as any).publicUrl
+  preview.publicUrl = (file.metadata as any).publicUrl
+}
 
     if (!form.projectName) {
       form.projectName = file.metadata.name
@@ -264,6 +309,7 @@ async function onSubmit() {
     const newProject = await store.createProject({
       fileKey: form.fileKey,
       projectName: form.projectName,
+      publicUrl: form.publicUrl,
       lastModified: preview.lastModified,
       version: preview.version,
       thumbnailUrl: preview.thumbnailUrl,

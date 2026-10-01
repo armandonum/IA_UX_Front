@@ -101,6 +101,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'edit', row: FigmaProject): void
+  (e: 'deleted', projectId: string): void 
 }>()
 
 const $q = useQuasar()
@@ -142,23 +143,33 @@ async function onResync(row: FigmaProject) {
 function openImage(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
-
-function onRemove(row: FigmaProject) {
+async function onRemove(row: FigmaProject) {
   $q.dialog({
     title: 'Eliminar proyecto',
-    message: `¿Seguro que deseas eliminar "${row.projectName}"?`,
+    message: `¿Seguro que deseas eliminar "${row.projectName}"? Esta acción no se puede deshacer.`,
     cancel: true,
     persistent: true,
-  }).onOk(() => {
+    ok: {
+      label: 'Eliminar',
+      color: 'negative',
+      unelevated: true,
+    },
+  }).onOk(async () => {
     try {
+      await store.deleteProject(row.projectId)
+      $q.notify({
+        type: 'positive',
+        message: 'Proyecto eliminado correctamente',
+        icon: 'check_circle',
+      })
 
-      const index = store.projects.findIndex((p) => p.projectId === row.projectId)
-      if (index !== -1) {
-        store.projects.splice(index, 1)
-      }
-      $q.notify({ type: 'positive', message: 'Proyecto eliminado' })
+      emit('deleted', row.projectId)
     } catch (e: any) {
-      $q.notify({ type: 'negative', message: e.message ?? 'No se pudo eliminar el proyecto' })
+      console.error('Error eliminando proyecto:', e)
+      $q.notify({
+        type: 'negative',
+        message: e.response?.data?.message || e.message || 'No se pudo eliminar el proyecto',
+      })
     }
   })
 }

@@ -134,24 +134,60 @@ export const userRolesApi = {
 
 /* ============================ FIGMA PROJECTS ============================ */
 export const figmaProjectsApi = {
+  /**
+   * Listar todos los proyectos
+   */
   list: () =>
     request<FigmaProject[]>('/figma-projects'),
 
+  /**
+   * Obtener un proyecto por ID
+   */
+  get: (projectId: string) =>
+    request<FigmaProject>(`/figma-projects/${projectId}`),
+
+  /**
+   * Obtener proyectos creados por un usuario
+   */
+  listByCreator: (userId: string) =>
+    request<FigmaProject[]>(`/figma-projects/creator/${userId}`),
+
+  /**
+   * Crear un nuevo proyecto (multipart/form-data con el JSON de Figma)
+   */
   create: (formData: FormData) =>
     request<FigmaProject>('/figma-projects', {
       method: 'POST',
       body: formData,
     }),
 
-  resync: (projectId: string) =>
-    request<FigmaProject>(
-      `/figma-projects/${projectId}/sync`,
-      {
-        method: 'POST',
-      },
-    ),
-}
+  /**
+   * Actualizar campos del proyecto (nombre, URL pública, etc.)
+   */
+  update: (projectId: string, data: Partial<FigmaProject>) =>
+    request<FigmaProject>(`/figma-projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
 
+  /**
+   * Eliminar un proyecto
+   */
+  delete: (projectId: string) =>
+    request<void>(`/figma-projects/${projectId}`, {
+      method: 'DELETE',
+    }),
+
+  /**
+   * Volver a sincronizar los nodos desde Figma
+   * (re-descarga el JSON completo del archivo de Figma)
+   */
+  resync: (projectId: string) =>
+    request<FigmaProject>(`/figma-projects/${projectId}/sync`, {
+      method: 'POST',
+    }),
+}
 /* ============================ FIGMA NODES ============================ */
 export const figmaNodesApi = {
   listByProject: (projectId: string) =>

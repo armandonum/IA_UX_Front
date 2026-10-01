@@ -1,6 +1,7 @@
+<!-- components/estudiante/usability/UsabilityTaskStartModal.vue -->
 <template>
   <q-dialog :model-value="show" persistent>
-    <q-card style="min-width: 480px; max-width: 90vw">
+    <q-card style="min-width: 520px; max-width: 90vw">
       <!-- Header -->
       <q-card-section class="bg-primary text-white">
         <div class="row items-center">
@@ -8,7 +9,7 @@
           <div class="col">
             <div class="text-h6">Iniciar Tarea</div>
             <div class="text-caption" style="opacity: 0.85">
-              Revisa los permisos antes de comenzar
+              Revisa los dispositivos y permisos antes de comenzar
             </div>
           </div>
         </div>
@@ -26,7 +27,147 @@
 
       <q-separator />
 
-      <!-- Estado de permisos -->
+      <!-- ============================================================ -->
+      <!-- SELECCIÓN DE DISPOSITIVOS                                    -->
+      <!-- ============================================================ -->
+      <q-card-section>
+        <div class="row items-center justify-between q-mb-md">
+          <div class="text-subtitle2">
+            🎥 Dispositivos seleccionados
+          </div>
+          <q-btn
+            flat
+            dense
+            size="sm"
+            color="primary"
+            icon="tune"
+            label="Cambiar"
+            @click="showDeviceSelector = true"
+            :disable="loadingStart"
+          />
+        </div>
+
+        <q-list separator dense>
+          <!-- Cámara -->
+          <q-item>
+            <q-item-section avatar>
+              <q-avatar
+                :color="deviceSelection ? 'primary' : 'grey-5'"
+                text-color="white"
+                size="32px"
+              >
+                <q-icon name="videocam" size="18px" />
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-caption text-grey-6">
+                Cámara
+              </q-item-label>
+              <q-item-label class="text-body2">
+                {{
+                  deviceSelection?.videoLabel ||
+                  'Sin seleccionar — toca "Cambiar"'
+                }}
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon
+                :name="deviceSelection ? 'check_circle' : 'error'"
+                :color="deviceSelection ? 'positive' : 'warning'"
+                size="20px"
+              />
+            </q-item-section>
+          </q-item>
+
+          <!-- Micrófono -->
+          <q-item>
+            <q-item-section avatar>
+              <q-avatar
+                :color="deviceSelection ? 'primary' : 'grey-5'"
+                text-color="white"
+                size="32px"
+              >
+                <q-icon name="mic" size="18px" />
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-caption text-grey-6">
+                Micrófono
+              </q-item-label>
+              <q-item-label class="text-body2">
+                {{
+                  deviceSelection?.audioLabel ||
+                  'Sin seleccionar — toca "Cambiar"'
+                }}
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon
+                :name="deviceSelection ? 'check_circle' : 'error'"
+                :color="deviceSelection ? 'positive' : 'warning'"
+                size="20px"
+              />
+            </q-item-section>
+          </q-item>
+
+          <!-- Pantalla -->
+          <q-item>
+            <q-item-section avatar>
+              <q-avatar
+                :color="pantallaLista ? 'positive' : isMobile ? 'grey-5' : 'warning'"
+                text-color="white"
+                size="32px"
+              >
+                <q-icon name="desktop_windows" size="18px" />
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-caption text-grey-6">
+                Pantalla
+              </q-item-label>
+              <q-item-label class="text-body2">
+                <template v-if="isMobile">
+                  No disponible en móvil
+                </template>
+                <template v-else-if="pantallaLista">
+                  Permiso concedido
+                </template>
+                <template v-else>
+                  Se pedirá al iniciar
+                </template>
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon
+                :name="isMobile ? 'phone_android' : pantallaLista ? 'check_circle' : 'schedule'"
+                :color="isMobile ? 'grey-6' : pantallaLista ? 'positive' : 'warning'"
+                size="20px"
+              />
+            </q-item-section>
+          </q-item>
+        </q-list>
+
+        <!-- Banner si no hay dispositivos seleccionados -->
+        <q-banner
+          v-if="!deviceSelection"
+          dense
+          rounded
+          class="bg-warning text-white q-mt-md"
+        >
+          <template v-slot:avatar>
+            <q-icon name="warning" />
+          </template>
+          <div class="text-caption">
+            Debes seleccionar cámara y micrófono antes de iniciar.
+          </div>
+        </q-banner>
+      </q-card-section>
+
+      <!-- ============================================================ -->
+      <!-- PERMISOS                                                     -->
+      <!-- ============================================================ -->
+      <q-separator />
+
       <q-card-section>
         <div class="text-subtitle2 q-mb-md">Estado de los permisos</div>
 
@@ -34,20 +175,23 @@
           <!-- Cámara -->
           <q-item>
             <q-item-section avatar>
-              <q-avatar :color="camaraLista ? 'positive' : 'grey-5'" text-color="white">
+              <q-avatar
+                :color="camaraLista ? 'positive' : 'grey-5'"
+                text-color="white"
+              >
                 <q-icon name="videocam" />
               </q-avatar>
             </q-item-section>
             <q-item-section>
               <q-item-label>Cámara</q-item-label>
               <q-item-label caption>
-                {{ camaraLista ? 'Permiso concedido' : 'Sin permiso' }}
+                {{ camaraLista ? 'Permiso concedido' : 'Se pedirá al iniciar' }}
               </q-item-label>
             </q-item-section>
             <q-item-section side>
               <q-icon
-                :name="camaraLista ? 'check_circle' : 'cancel'"
-                :color="camaraLista ? 'positive' : 'negative'"
+                :name="camaraLista ? 'check_circle' : 'schedule'"
+                :color="camaraLista ? 'positive' : 'grey-6'"
                 size="24px"
               />
             </q-item-section>
@@ -56,20 +200,43 @@
           <!-- Pantalla -->
           <q-item>
             <q-item-section avatar>
-              <q-avatar :color="pantallaLista ? 'positive' : 'grey-5'" text-color="white">
+              <q-avatar
+                :color="pantallaLista ? 'positive' : isMobile ? 'grey-5' : 'grey-5'"
+                text-color="white"
+              >
                 <q-icon name="desktop_windows" />
               </q-avatar>
             </q-item-section>
             <q-item-section>
               <q-item-label>Pantalla</q-item-label>
               <q-item-label caption>
-                {{ pantallaLista ? 'Permiso concedido' : 'Sin permiso' }}
+                <template v-if="isMobile">
+                  No disponible en móvil
+                </template>
+                <template v-else-if="pantallaLista">
+                  Permiso concedido
+                </template>
+                <template v-else>
+                  Se pedirá al iniciar
+                </template>
               </q-item-label>
             </q-item-section>
             <q-item-section side>
               <q-icon
-                :name="pantallaLista ? 'check_circle' : 'cancel'"
-                :color="pantallaLista ? 'positive' : 'negative'"
+                :name="
+                  isMobile
+                    ? 'phone_android'
+                    : pantallaLista
+                    ? 'check_circle'
+                    : 'schedule'
+                "
+                :color="
+                  isMobile
+                    ? 'grey-6'
+                    : pantallaLista
+                    ? 'positive'
+                    : 'grey-6'
+                "
                 size="24px"
               />
             </q-item-section>
@@ -79,7 +246,7 @@
           <q-item>
             <q-item-section avatar>
               <q-avatar
-                :color="audioSoportado ? (audioListo ? 'positive' : 'warning') : 'grey-5'"
+                :color="audioSoportado ? 'positive' : 'grey-5'"
                 text-color="white"
               >
                 <q-icon name="mic" />
@@ -91,18 +258,18 @@
                 <template v-if="!audioSoportado">
                   No soportado por el navegador
                 </template>
-                <template v-else-if="audioListo">
-                  Permiso concedido
+                <template v-else-if="deviceSelection">
+                  Listo ({{ deviceSelection.audioLabel }})
                 </template>
                 <template v-else>
-                  Sin permiso
+                  Sin seleccionar
                 </template>
               </q-item-label>
             </q-item-section>
             <q-item-section side>
               <q-icon
-                :name="audioSoportado ? (audioListo ? 'check_circle' : 'warning') : 'info'"
-                :color="audioSoportado ? (audioListo ? 'positive' : 'warning') : 'grey-6'"
+                :name="audioSoportado ? 'check_circle' : 'info'"
+                :color="audioSoportado ? 'positive' : 'grey-6'"
                 size="24px"
               />
             </q-item-section>
@@ -111,7 +278,7 @@
 
         <!-- Advertencia si falta algo crítico -->
         <q-banner
-          v-if="!camaraLista || !pantallaLista"
+          v-if="!deviceSelection"
           dense
           rounded
           class="bg-warning text-white q-mt-md"
@@ -120,7 +287,7 @@
             <q-icon name="warning" />
           </template>
           <div class="text-caption">
-            Se requiere cámara y pantalla para iniciar la tarea.
+            Selecciona cámara y micrófono para continuar.
           </div>
         </q-banner>
 
@@ -135,8 +302,8 @@
             <q-icon name="info" />
           </template>
           <div class="text-caption">
-            Tu navegador no soporta reconocimiento de voz.
-            Puedes continuar, pero no se grabará la transcripción.
+            Tu navegador no soporta reconocimiento de voz. Puedes continuar,
+            pero no se grabará la transcripción.
             <br />
             <strong>Recomendado: Chrome, Edge o Brave.</strong>
           </div>
@@ -160,34 +327,84 @@
           icon="play_arrow"
           label="Iniciar Tarea"
           :loading="loadingStart"
-          :disable="!camaraLista || !pantallaLista"
+          :disable="!deviceSelection"
           @click="$emit('iniciar')"
         />
       </q-card-actions>
     </q-card>
+
+    <!-- Modal selector de dispositivos -->
+    <DeviceSelectorModal
+      v-model="showDeviceSelector"
+      @confirmed="onDevicesConfirmed"
+      @cancelled="showDeviceSelector = false"
+    />
   </q-dialog>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
+import DeviceSelectorModal from './DeviceSelectorModal.vue'
 
-defineProps<{
+interface DeviceSelection {
+  videoDeviceId: string
+  audioDeviceId: string
+  videoLabel: string
+  audioLabel: string
+}
+
+const props = defineProps<{
   show: boolean
   taskDescription: string
   camaraLista: boolean
   pantallaLista: boolean
   loadingStart: boolean
+  deviceSelection?: DeviceSelection | null
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'iniciar'): void
   (e: 'cancelar'): void
+  (
+    e: 'devices-selected',
+    selection: { videoDeviceId: string; audioDeviceId: string },
+  ): void
 }>()
 
-// Detectar soporte de audio
-const { isSupported: audioSoportado, isRecording } = useAudioRecorder()
-const audioListo = computed(() => audioSoportado.value && !isRecording.value)
+const { isSupported: audioSoportado } = useAudioRecorder()
+
+const showDeviceSelector = ref(false)
+const isMobile = computed(() => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent))
+
+// 🔥 Auto-abrir el selector si no hay dispositivos seleccionados
+function onDialogOpen() {
+  if (!props.deviceSelection) {
+    showDeviceSelector.value = true
+  }
+}
+
+// Escuchar cuando el modal padre se abre
+import { watch } from 'vue'
+watch(
+  () => props.show,
+  (val) => {
+    if (val && !props.deviceSelection) {
+      // Abrir el selector automáticamente
+      setTimeout(() => {
+        showDeviceSelector.value = true
+      }, 300)
+    }
+  },
+)
+
+function onDevicesConfirmed(selection: {
+  videoDeviceId: string
+  audioDeviceId: string
+}) {
+  showDeviceSelector.value = false
+  emit('devices-selected', selection)
+}
 </script>
 
 <style scoped>

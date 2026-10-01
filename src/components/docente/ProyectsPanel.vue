@@ -32,6 +32,7 @@
       :rows="filteredProjects"
       :loading="loading"
       @edit="onEditProject"
+      @deleted="onProjectDeleted"
     />
 
     <FigmaProjectFormDialog
@@ -100,6 +101,15 @@ async function onProjectSaved() {
   await load()
 }
 
+function onProjectDeleted(projectId: string) {
+  if (props.semesterId) {
+    semesterStore
+      .unassignProjectFromSemester(props.semesterId, projectId)
+      .catch((err) => {
+        console.warn('No se pudo desasignar el proyecto del semestre:', err)
+      })
+  }
+}
 async function load() {
   if (!props.semesterId) {
     await store.fetchProjects()

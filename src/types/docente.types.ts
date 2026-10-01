@@ -14,6 +14,7 @@ export interface FigmaProject {
   projectId: string
   fileKey: string
   projectName: string
+  publicUrl?: string           
   thumbnailUrl?: string
   version?: string
   lastModified?: string

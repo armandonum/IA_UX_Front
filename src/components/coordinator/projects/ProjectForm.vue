@@ -39,6 +39,34 @@
             hint="Puedes modificarlo antes de guardar"
             :rules="[(v) => !!v || 'Campo obligatorio']"
           />
+          <!-- 🆕 URL pública del prototipo -->
+<q-input
+  v-model="form.publicUrl"
+  filled
+  label="URL pública del prototipo (opcional)"
+  hint="Ej: https://www.figma.com/proto/abc123/Prototipo?node-id=1-2"
+  :rules="[
+    (v) => !v || /^https?:\/\/.+/.test(v) || 'Debe ser una URL válida'
+  ]"
+>
+  <template v-slot:prepend>
+    <q-icon name="link" />
+  </template>
+  <template v-slot:append v-if="form.publicUrl">
+    <q-btn
+      flat
+      dense
+      round
+      size="sm"
+      icon="open_in_new"
+      color="primary"
+      :href="form.publicUrl"
+      target="_blank"
+    >
+      <q-tooltip>Abrir en nueva pestaña</q-tooltip>
+    </q-btn>
+  </template>
+</q-input>
 
           <q-separator />
 
@@ -58,7 +86,13 @@
             readonly
             label="Última modificación"
           />
-
+<q-input
+  v-if="preview.publicUrl"
+  v-model="preview.publicUrl"
+  filled
+  readonly
+  label="URL pública detectada"
+/>
           <q-input
             v-model="preview.thumbnailUrl"
             filled
@@ -140,13 +174,15 @@ const fileLoaded = ref(false)
 
 const form = reactive({
   fileKey: '',
-  projectName: ''
+  projectName: '',
+  publicUrl: '' 
 })
 
 const preview = reactive({
   version: '',
   lastModified: '',
   thumbnailUrl: '',
+  publicUrl: '',  
   rawJson: null
 })
 
@@ -160,9 +196,11 @@ const semesterName = computed(() => {
 function resetForm() {
   form.fileKey = ''
   form.projectName = ''
+  form.publicUrl = '' 
   preview.version = ''
   preview.lastModified = ''
   preview.thumbnailUrl = ''
+  preview.publicUrl = ''
   preview.rawJson = null
   fileLoaded.value = false
 }
@@ -172,9 +210,11 @@ watch(() => props.project, (newProject) => {
   if (newProject) {
     form.fileKey = newProject.fileKey || ''
     form.projectName = newProject.projectName || ''
+    form.publicUrl = newProject.publicUrl || '' 
     preview.version = newProject.version || ''
     preview.lastModified = newProject.lastModified || ''
     preview.thumbnailUrl = newProject.thumbnailUrl || ''
+    preview.publicUrl = newProject.publicUrl || ''
     fileLoaded.value = true
   } else {
     resetForm()
@@ -235,7 +275,11 @@ async function loadFigmaFile() {
     if (!form.projectName) {
       form.projectName = file.metadata.name
     }
-
+if (!form.publicUrl && form.fileKey) {
+      const suggested = `https://www.figma.com/proto/${form.fileKey}/Prototipo`
+      form.publicUrl = suggested
+      preview.publicUrl = suggested
+    }
     fileLoaded.value = true
 
     $q.notify({
@@ -269,6 +313,7 @@ async function onSubmit() {
       await projectsStore.updateProject(props.project.projectId, {
         projectName: form.projectName,
         fileKey: form.fileKey,
+        publicUrl: form.publicUrl,  
         version: preview.version,
         lastModified: preview.lastModified,
         thumbnailUrl: preview.thumbnailUrl
@@ -278,6 +323,7 @@ async function onSubmit() {
       const payload = {
         fileKey: form.fileKey,
         projectName: form.projectName,
+        publicUrl: form.publicUrl,
         lastModified: preview.lastModified,
         version: preview.version,
         thumbnailUrl: preview.thumbnailUrl,

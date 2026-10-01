@@ -157,6 +157,7 @@ export const useDocenteStore = defineStore("docente", () => {
 async function createProject(data: {
   fileKey: string
   projectName: string
+  publicUrl?: string
   lastModified: string
   version: string
   thumbnailUrl: string
@@ -184,7 +185,9 @@ async function createProject(data: {
   formData.append('lastModified', data.lastModified)
   formData.append('version', data.version)
   formData.append('thumbnailUrl', data.thumbnailUrl || '')
-  
+  if (data.publicUrl) {
+  formData.append('publicUrl', data.publicUrl)
+}
   if (data.semesterId) {
     formData.append('semesterId', data.semesterId)
   }
@@ -228,6 +231,13 @@ async function createProject(data: {
     return result;
   }
 
+    // 🆕 NUEVO: Eliminar proyecto
+  async function deleteProject(projectId: string) {
+    await figmaProjectsApi.delete(projectId)
+
+    // Eliminar del array local
+    projects.value = projects.value.filter((p) => p.projectId !== projectId)
+  }
   // ✅ NUEVO: Desasignar proyecto del semestre
   async function unassignProjectFromSemester(
     semesterId: string,
@@ -613,6 +623,7 @@ async function deleteRequirement(requirementId: string) {
     fetchProjects,
     fetchProjectsBySemester,
     createProject,
+    deleteProject,
     assignProjectToSemester,
     unassignProjectFromSemester,
 

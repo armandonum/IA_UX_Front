@@ -13,6 +13,7 @@ export const figmaProjectsApi = {
   create: (data: {
     fileKey: string
     projectName: string
+    publicUrl?: string
     lastModified: string
     version: string
     thumbnailUrl: string
@@ -29,6 +30,7 @@ export const figmaProjectsApi = {
     formData.append('lastModified', data.lastModified)
     formData.append('version', data.version)
     formData.append('thumbnailUrl', data.thumbnailUrl || '')
+    if (data.publicUrl) formData.append('publicUrl', data.publicUrl)
     if (data.createdBy) formData.append('createdBy', data.createdBy)
     if (data.semesterId) formData.append('semesterId', data.semesterId)
     formData.append('file', blob, `${data.fileKey}.json`)

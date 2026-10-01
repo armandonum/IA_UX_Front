@@ -1,64 +1,124 @@
-  <!-- views/roles/estudiante/EstudianteUsabilityView.vue -->
+<!-- views/roles/estudiante/EstudianteUsabilityView.vue -->
+<template>
+  <div class="w-full h-screen relative">
+    <!-- ====== CONSENTIMIENTO ====== -->
+    <UsabilityConsentModal
+      :show="status === 'consent'"
+      v-model:checked="consentChecked"
+      :loading="loadingPermissions"
+      :error="permissionsError"
+      @continuar="abrirSelectorDispositivos"
+    />
 
-  <template>
-    <div class="w-full h-screen relative">
-      <!-- ====== CONSENTIMIENTO ====== -->
-      <UsabilityConsentModal :show="status === 'consent'" v-model:checked="consentChecked" :loading="loadingPermissions"
-        :error="permissionsError" @continuar="pedirPermisosYContinuar" />
+    <!-- ====== SELECTOR DE DISPOSITIVOS ====== -->
+    <DeviceSelectorModal
+      v-model="showDeviceSelector"
+      @confirmed="onDevicesConfirmed"
+      @cancelled="onDeviceSelectorCancelled"
+    />
 
-      <!-- ====== PRETEST ====== -->
-      <UsabilityPretestModal v-if="status === 'pretest' && pretestQuestionnaire" :show="status === 'pretest'"
-        :questionnaire="pretestQuestionnaire" :loading="loadingQuestionnaire" @enviar="onPretestEnviado" />
+    <!-- ====== PRETEST ====== -->
+    <UsabilityPretestModal
+      v-if="status === 'pretest' && pretestQuestionnaire"
+      :show="status === 'pretest'"
+      :questionnaire="pretestQuestionnaire"
+      :loading="loadingQuestionnaire"
+      @enviar="onPretestEnviado"
+    />
 
-      <!-- ====== LISTA DE TAREAS ====== -->
-      <UsabilityTaskListModal :show="status === 'tasklist'" :tasks="tasks" :completed-task-ids="completedTaskIds"
-        :loading="loadingTasks" @seleccionar-tarea="seleccionarTarea" />
+    <!-- ====== LISTA DE TAREAS ====== -->
+    <UsabilityTaskListModal
+      :show="status === 'tasklist'"
+      :tasks="tasks"
+      :completed-task-ids="completedTaskIds"
+      :loading="loadingTasks"
+      @seleccionar-tarea="seleccionarTarea"
+    />
 
-      <!-- ====== INICIO DE TAREA ====== -->
-      <UsabilityTaskStartModal :show="status === 'idle'" :task-description="currentTask?.description ?? ''"
-        :camara-lista="camaraLista" :pantalla-lista="pantallaLista" :loading-start="loadingStart"
-        @iniciar="iniciarRecorrido" />
+    <!-- ====== INICIO DE TAREA ====== -->
+    <UsabilityTaskStartModal
+      :show="status === 'idle'"
+      :task-description="currentTask?.description ?? ''"
+      :camara-lista="camaraLista"
+      :pantalla-lista="pantallaLista"
+      :loading-start="loadingStart"
+      :device-selection="selectedDevices"
+      @iniciar="iniciarRecorrido"
+      @cancelar="volverAListaDeTareas"
+      @devices-selected="onDevicesSelected"
+    />
 
-      <!-- ====== PROTOTIPO EN CURSO ====== -->
-      <template v-if="status === 'running'">
-        <UsabilityPrototypeStage ref="stageRef" :figma-embed-url="figmaEmbedUrl" />
+    <!-- ====== PROTOTIPO EN CURSO ====== -->
+    <template v-if="status === 'running'">
+      <UsabilityPrototypeStage ref="stageRef" :figma-embed-url="figmaEmbedUrl" />
 
-        
-        <UsabilityStatusBar
-  :tiempo="tiempoFormateado"
-  :emocion-emoji="emocionActualEmoji"
-  :emocion-label="emocionActualLabel"
-  :has-gaze="hasGaze"
-  :gaze-actual="gazeActual"
-  @finalizar="finalizarRecorrido"
-/>
-        
-        <ReportModal :session-id="sessionId" :current-time-ms="elapsedMs" :emotion-actual-label="emocionActualLabel"
-          :evento-info="getNearestEvent(elapsedMs)" @seek="seekAbsoluto" @report="onReporteEnviado" />
+      <UsabilityStatusBar
+        :tiempo="tiempoFormateado"
+        :emocion-emoji="emocionActualEmoji"
+        :emocion-label="emocionActualLabel"
+        :has-gaze="hasGaze"
+        :gaze-actual="gazeActual"
+        @finalizar="finalizarRecorrido"
+      />
 
-        <UsabilityAudioBar :is-recording="isAudioRecording" :audio-level="audioLevel"
-          :transcribed-text="transcribedText" :is-connected="isTextAIConnected" :last-sentiment="lastSentiment" />
-      </template>
+      <ReportModal
+        :session-id="sessionId"
+        :current-time-ms="elapsedMs"
+        :emotion-actual-label="emocionActualLabel"
+        :evento-info="getNearestEvent(elapsedMs)"
+        @seek="seekAbsoluto"
+        @report="onReporteEnviado"
+      />
 
-      <!-- ====== TAREA COMPLETADA ====== -->
-      <UsabilityTaskCompleteModal :show="status === 'task-finished'" :subiendo-videos="subiendoVideos"
-        :tiempo-formateado="tiempoFormateado" :eventos-registrados="eventosRegistrados"
-        :lecturas-emocion-registradas="lecturasEmocionRegistradas" :quedan-tareas="tareasPendientes.length > 0"
-        @continuar="volverAListaOTerminar" />
+      <UsabilityAudioBar
+        :is-recording="isAudioRecording"
+        :audio-level="audioLevel"
+        :transcribed-text="transcribedText"
+        :is-connected="isTextAIConnected"
+        :last-sentiment="lastSentiment"
+      />
+    </template>
 
-      <!-- ====== POSTEST ====== -->
-      <UsabilityPosttestModal v-if="status === 'posttest' && posttestQuestionnaire" :show="status === 'posttest'"
-        :questionnaire="posttestQuestionnaire" :loading="loadingQuestionnaire" @enviar="onPosttestEnviado" />
+    <!-- ====== TAREA COMPLETADA ====== -->
+    <UsabilityTaskCompleteModal
+      :show="status === 'task-finished'"
+      :subiendo-videos="subiendoVideos"
+      :tiempo-formateado="tiempoFormateado"
+      :eventos-registrados="eventosRegistrados"
+      :lecturas-emocion-registradas="lecturasEmocionRegistradas"
+      :quedan-tareas="tareasPendientes.length > 0"
+      @continuar="volverAListaOTerminar"
+    />
 
-      <!-- ====== FINALIZACIÓN ====== -->
-      <UsabilityFinishedModal :show="status === 'finished'" :subiendo-videos="false"
-        :tiempo-formateado="tiempoFormateado" :eventos-registrados="eventosRegistrados"
-        :lecturas-emocion-registradas="lecturasEmocionRegistradas" />
-    </div>
-  </template>
+    <!-- ====== POSTEST ====== -->
+    <UsabilityPosttestModal
+      v-if="status === 'posttest' && posttestQuestionnaire"
+      :show="status === 'posttest'"
+      :questionnaire="posttestQuestionnaire"
+      :loading="loadingQuestionnaire"
+      @enviar="onPosttestEnviado"
+    />
+
+    <!-- ====== FINALIZACIÓN ====== -->
+    <UsabilityFinishedModal
+      :show="status === 'finished'"
+      :subiendo-videos="false"
+      :tiempo-formateado="tiempoFormateado"
+      :eventos-registrados="eventosRegistrados"
+      :lecturas-emocion-registradas="lecturasEmocionRegistradas"
+    />
+  </div>
+</template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useFigmaSessionStore } from '@/stores/figmaSession.store'
@@ -75,11 +135,13 @@ import UsabilityTaskCompleteModal from '@/components/estudiante/usability/Usabil
 import UsabilityPosttestModal from '@/components/estudiante/usability/UsabilityPosttestModal.vue'
 import UsabilityFinishedModal from '@/components/estudiante/usability/UsabilityFinishedModal.vue'
 import ReportModal from '@/components/estudiante/figma/ReportModal.vue'
+import DeviceSelectorModal from '@/components/estudiante/usability/DeviceSelectorModal.vue'
 
 // Composables
 import { useAudioRecorder } from '@/composables/useAudioRecorder'
 import { useHeatmap } from '@/composables/useHeatmap'
 import { useGazeTracking } from '@/composables/useGazeTracking'
+import { useMediaDevices } from '@/composables/useMediaDevices'
 
 // Types
 import type { Task, Questionnaire, QuestionAnswer } from '@/types/usability'
@@ -95,6 +157,7 @@ const router = useRouter()
 const figmaSession = useFigmaSessionStore()
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
 const AI_URL = import.meta.env.VITE_IA_SERVICE
+
 // ============================================================
 // CONFIGURACIÓN
 // ============================================================
@@ -102,13 +165,18 @@ const NODE_ID = '1-759'
 const EMOTION_SERVICE_URL = `${AI_URL}/analyze-frame`
 const EMOTION_CAPTURE_INTERVAL_MS = 2000
 const TEXT_SERVICE_URL = `${AI_URL}/analyze-text`
-const GAZE_CAPTURE_INTERVAL_MS = 200 // 5 veces por segundo
+const GAZE_CAPTURE_INTERVAL_MS = 200
 
 const fileKey = computed(
-  () => (route.params.fileKey as string) || figmaSession.selectedProject?.fileKey || ''
+  () =>
+    (route.params.fileKey as string) ||
+    figmaSession.selectedProject?.fileKey ||
+    '',
 )
 const clientId = computed(() => figmaSession.clientId)
-const projectId = computed(() => figmaSession.selectedProject?.projectId || '')
+const projectId = computed(
+  () => figmaSession.selectedProject?.projectId || '',
+)
 
 const figmaEmbedUrl = computed(() => {
   const params = new URLSearchParams({
@@ -118,6 +186,32 @@ const figmaEmbedUrl = computed(() => {
   })
   return `https://embed.figma.com/proto/${fileKey.value}?${params.toString()}`
 })
+
+// ============================================================
+// DETECCIÓN DE MÓVIL
+// ============================================================
+const isMobile = computed(() =>
+  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent),
+)
+
+// ============================================================
+// DISPOSITIVOS SELECCIONADOS
+// ============================================================
+interface DeviceSelection {
+  videoDeviceId: string
+  audioDeviceId: string
+  videoLabel: string
+  audioLabel: string
+}
+
+const selectedDevices = ref<DeviceSelection | null>(null)
+const showDeviceSelector = ref(false)
+
+const {
+  videoDevices,
+  audioDevices,
+  listDevices,
+} = useMediaDevices()
 
 // ============================================================
 // AUDIO
@@ -178,8 +272,6 @@ const comments = ref<any[]>([])
 let timerInterval: ReturnType<typeof setInterval> | null = null
 let emotionInterval: ReturnType<typeof setInterval> | null = null
 
-
-
 // ============================================================
 // TAREAS / CUESTIONARIOS
 // ============================================================
@@ -193,9 +285,8 @@ const pretestCompleted = ref(false)
 const posttestCompleted = ref(false)
 
 const tareasPendientes = computed(() =>
-  tasks.value.filter((t) => !completedTaskIds.value.has(t.taskId))
+  tasks.value.filter((t) => !completedTaskIds.value.has(t.taskId)),
 )
-
 
 // ============================================================
 // STREAMS
@@ -212,8 +303,6 @@ let screenRecorder: MediaRecorder | null = null
 let faceChunks: Blob[] = []
 let screenChunks: Blob[] = []
 
-
-
 // ============================================================
 // COMPUTED
 // ============================================================
@@ -225,18 +314,29 @@ const tiempoFormateado = computed(() => {
 })
 
 const emotionEmojis: Record<string, string> = {
-  happy: '🙂', sad: '🙁', angry: '😠', surprise: '😮', disgust: '😖', fear: '😨',
+  happy: '🙂',
+  sad: '🙁',
+  angry: '😠',
+  surprise: '😮',
+  disgust: '😖',
+  fear: '😨',
 }
 const emotionLabelsEs: Record<string, string> = {
-  happy: 'Felicidad', sad: 'Tristeza', angry: 'Enojo',
-  surprise: 'Sorpresa', disgust: 'Asco', fear: 'Miedo',
+  happy: 'Felicidad',
+  sad: 'Tristeza',
+  angry: 'Enojo',
+  surprise: 'Sorpresa',
+  disgust: 'Asco',
+  fear: 'Miedo',
 }
 
 const emocionActualEmoji = computed(() =>
-  emocionActual.value ? emotionEmojis[emocionActual.value] ?? '—' : '—'
+  emocionActual.value ? emotionEmojis[emocionActual.value] ?? '—' : '—',
 )
 const emocionActualLabel = computed(() =>
-  emocionActual.value ? emotionLabelsEs[emocionActual.value] ?? emocionActual.value : 'analizando…'
+  emocionActual.value
+    ? emotionLabelsEs[emocionActual.value] ?? emocionActual.value
+    : 'analizando…',
 )
 
 function tiempoActual() {
@@ -249,14 +349,9 @@ function tiempoActual() {
 }
 
 // ============================================================
-// MÉTODOS
+// MAPA DE CALOR
 // ============================================================
-
-
-// ============================================================
-// MAPA DE CALOR con nodeId dinámico
-// ============================================================
-const { 
+const {
   isCapturing: isHeatmapCapturing,
   startCapturing: startHeatmap,
   stopCapturing: stopHeatmap,
@@ -264,7 +359,7 @@ const {
   sessionId: sessionId,
   projectId: projectId,
   userId: ref(auth.user?.user_id || null),
-  nodeId: currentNodeId, 
+  nodeId: currentNodeId,
   enabled: true,
   captureMove: true,
   captureScroll: true,
@@ -272,9 +367,8 @@ const {
   getElapsedMs: () => tiempoActual().elapsed_ms_total,
 })
 
-
 // ============================================================
-//  NUEVO: EYE TRACKING
+// EYE TRACKING
 // ============================================================
 const {
   isTracking: isGazeTracking,
@@ -285,7 +379,7 @@ const {
   eventosEnviados: eventosGazeEnviados,
   currentTrackedNodeId,
   startTracking: startGazeTracking,
-  activateCapture: activateGazeCapture,  // 🔥 NUEVO
+  activateCapture: activateGazeCapture,
   stopTracking: stopGazeTracking,
   calculateAOIMetrics,
   reset: resetGazeTracking,
@@ -302,36 +396,125 @@ const {
 })
 
 // ============================================================
-// PASO 0: PERMISOS (cámara + pantalla + audio)
+// PASO 0: ABRIR SELECTOR DE DISPOSITIVOS
+// ============================================================
+/**
+ * Se llama cuando el usuario acepta el consentimiento.
+ * En vez de pedir permisos directamente, primero abre el selector
+ * para que el usuario elija sus dispositivos.
+ */
+async function abrirSelectorDispositivos() {
+  if (!consentChecked.value) return
+
+  // Cargar dispositivos disponibles
+  await listDevices()
+
+  // Abrir el modal
+  showDeviceSelector.value = true
+}
+
+// ============================================================
+// PASO 1: DISPOSITIVOS CONFIRMADOS
+// ============================================================
+function onDevicesConfirmed(selection: {
+  videoDeviceId: string
+  audioDeviceId: string
+}) {
+  // Buscar los labels reales
+  const videoDevice = videoDevices.value.find(
+    (d) => d.deviceId === selection.videoDeviceId,
+  )
+  const audioDevice = audioDevices.value.find(
+    (d) => d.deviceId === selection.audioDeviceId,
+  )
+
+  selectedDevices.value = {
+    videoDeviceId: selection.videoDeviceId,
+    audioDeviceId: selection.audioDeviceId,
+    videoLabel: videoDevice?.label || 'Cámara',
+    audioLabel: audioDevice?.label || 'Micrófono',
+  }
+
+  showDeviceSelector.value = false
+
+  console.log('✅ Dispositivos seleccionados:', selectedDevices.value)
+
+  // Ahora sí, pedir permisos reales
+  pedirPermisosYContinuar()
+}
+
+function onDeviceSelectorCancelled() {
+  showDeviceSelector.value = false
+  // No avanzar, se queda en consent
+}
+
+// ============================================================
+// PASO 2: PEDIR PERMISOS Y CONTINUAR
 // ============================================================
 async function pedirPermisosYContinuar() {
   loadingPermissions.value = true
   permissionsError.value = null
 
+  const videoDeviceId = selectedDevices.value?.videoDeviceId
+  const audioDeviceId = selectedDevices.value?.audioDeviceId
+
+  if (!videoDeviceId || !audioDeviceId) {
+    permissionsError.value = 'Debes seleccionar cámara y micrófono primero.'
+    loadingPermissions.value = false
+    showDeviceSelector.value = true
+    return
+  }
+
+  // ------------------------------------------------------------
+  // 1. CÁMARA + MICRÓFONO con deviceId específico
+  // ------------------------------------------------------------
   try {
-    // 🔥 Obtener video de la cámara Y audio del micrófono JUNTOS
     const faceStreamWithAudio = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true  // ✅ Ahora incluimos audio
+      video: { deviceId: { exact: videoDeviceId } },
+      audio: { deviceId: { exact: audioDeviceId } },
     })
     faceStream = faceStreamWithAudio
     camaraLista.value = true
-  } catch (e) {
-    permissionsError.value = 'No se pudo acceder a la cámara o micrófono.'
+  } catch (e: any) {
+    const name = e?.name || ''
+    if (name === 'NotAllowedError') {
+      permissionsError.value = 'Permiso de cámara/micrófono denegado.'
+    } else if (name === 'NotFoundError') {
+      permissionsError.value = 'Dispositivo no encontrado.'
+    } else if (name === 'NotReadableError') {
+      permissionsError.value =
+        'Dispositivo en uso por otra aplicación (Zoom, Meet, etc.).'
+    } else {
+      permissionsError.value = 'No se pudo acceder a la cámara o micrófono.'
+    }
     loadingPermissions.value = false
     return
   }
 
-  try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: false  // La pantalla sigue SIN audio
-    })
-    pantallaLista.value = true
-  } catch (e) {
-    permissionsError.value = 'No se pudo acceder a la pantalla.'
-    loadingPermissions.value = false
-    return
+  // ------------------------------------------------------------
+  // 2. PANTALLA (solo desktop)
+  // ------------------------------------------------------------
+  if (!isMobile.value) {
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      })
+      pantallaLista.value = true
+    } catch (e: any) {
+      if (e?.name === 'NotAllowedError') {
+        permissionsError.value =
+          'No compartiste la pantalla. Es obligatorio para la evaluación.'
+      } else {
+        permissionsError.value = 'No se pudo acceder a la pantalla.'
+      }
+      loadingPermissions.value = false
+      return
+    }
+  } else {
+    // En móvil no hay screen recording
+    pantallaLista.value = false
+    console.warn('📱 Modo móvil: grabación de pantalla deshabilitada')
   }
 
   loadingPermissions.value = false
@@ -346,6 +529,9 @@ async function pedirPermisosYContinuar() {
   await irAListaDeTareas()
 }
 
+// ============================================================
+// PROGRESO Y CUESTIONARIOS
+// ============================================================
 async function cargarProgreso() {
   const userId = auth.user?.user_id
   if (!userId) return
@@ -356,19 +542,25 @@ async function cargarProgreso() {
       fetchQuestionnaireMeta('posttest'),
     ])
 
-    const responsesRes = await fetch(`${BASE_URL}/questionnaire-responses/participant/${userId}`)
+    const responsesRes = await fetch(
+      `${BASE_URL}/questionnaire-responses/participant/${userId}`,
+    )
     const responses = responsesRes.ok ? await responsesRes.json() : []
 
     pretestCompleted.value = pretestMeta
       ? responses.some(
-        (r: any) => r.questionnaire_id === pretestMeta.questionnaire_id && r.session_id === null
-      )
+          (r: any) =>
+            r.questionnaire_id === pretestMeta.questionnaire_id &&
+            r.session_id === null,
+        )
       : true
 
     posttestCompleted.value = posttestMeta
       ? responses.some(
-        (r: any) => r.questionnaire_id === posttestMeta.questionnaire_id && r.session_id === null
-      )
+          (r: any) =>
+            r.questionnaire_id === posttestMeta.questionnaire_id &&
+            r.session_id === null,
+        )
       : true
 
     const sessionsRes = await fetch(`${BASE_URL}/usability-sessions`)
@@ -381,9 +573,9 @@ async function cargarProgreso() {
             s.project_id === projectId.value &&
             s.user_id === userId &&
             s.status === 'completed' &&
-            !!s.task_id
+            !!s.task_id,
         )
-        .map((s: any) => s.task_id)
+        .map((s: any) => s.task_id),
     )
   } catch (e) {
     console.error('Error cargando progreso', e)
@@ -391,7 +583,9 @@ async function cargarProgreso() {
 }
 
 async function fetchQuestionnaireMeta(tipo: 'pretest' | 'posttest') {
-  const res = await fetch(`${BASE_URL}/questionnaires/project/${projectId.value}/type/${tipo}`)
+  const res = await fetch(
+    `${BASE_URL}/questionnaires/project/${projectId.value}/type/${tipo}`,
+  )
   if (!res.ok) return null
   return await res.json()
 }
@@ -399,7 +593,6 @@ async function fetchQuestionnaireMeta(tipo: 'pretest' | 'posttest') {
 async function cargarCuestionario(tipo: 'pretest' | 'posttest') {
   loadingQuestionnaire.value = true
   try {
-    // 1. Obtener metadata del cuestionario
     const meta = await fetchQuestionnaireMeta(tipo)
     if (!meta) {
       if (tipo === 'pretest') pretestQuestionnaire.value = null
@@ -407,89 +600,86 @@ async function cargarCuestionario(tipo: 'pretest' | 'posttest') {
       return
     }
 
-    // 2. Obtener las preguntas del cuestionario
-    const questionsRes = await fetch(`${BASE_URL}/questions/questionnaire/${meta.questionnaireId}`)
+    const questionsRes = await fetch(
+      `${BASE_URL}/questions/questionnaire/${meta.questionnaireId}`,
+    )
     if (!questionsRes.ok) {
       throw new Error('Error al cargar preguntas')
     }
     const questionsRaw = await questionsRes.json()
 
-    // 3. Para CADA pregunta, cargar sus opciones si es de tipo opción múltiple
     const questionsConOpciones = await Promise.all(
       questionsRaw.map(async (q: any) => {
-        // Determinar el ID correcto de la pregunta
         const questionId = q.questionId || q.id || q.question_id
-
-        // Verificar si es una pregunta que necesita opciones
         const questionType = q.question_type || q.questionType || 'short_text'
-        const esDeOpciones = questionType === 'single_choice' || questionType === 'multi_choice'
+        const esDeOpciones =
+          questionType === 'single_choice' || questionType === 'multi_choice'
 
-        // Si no es de opciones, devolver la pregunta sin opciones
         if (!esDeOpciones) {
           return {
             ...q,
-            questionId: questionId,
-            questionType: questionType,
-            options: []
+            questionId,
+            questionType,
+            options: [],
           }
         }
 
-        // 🔥 IMPORTANTE: Hacer la consulta a ${BASE_URL}/question-options/question/:questionId
         try {
-          console.log(`🔍 Cargando opciones para pregunta: ${questionId}`)
-          const optionsRes = await fetch(`${BASE_URL}/question-options/question/${questionId}`, {
-            headers: {
-              'accept': '*/*'
-            }
-          })
+          const optionsRes = await fetch(
+            `${BASE_URL}/question-options/question/${questionId}`,
+            { headers: { accept: '*/*' } },
+          )
 
           if (!optionsRes.ok) {
-            console.warn(`⚠️ No se pudieron cargar opciones para pregunta ${questionId}: ${optionsRes.status}`)
             return {
               ...q,
-              questionId: questionId,
-              questionType: questionType,
-              options: []
+              questionId,
+              questionType,
+              options: [],
             }
           }
 
           const options = await optionsRes.json()
-          console.log(`✅ Opciones cargadas para pregunta ${questionId}:`, options)
 
-          // Mapear las opciones al formato esperado por el frontend
           const opcionesMapeadas = options.map((opt: any) => ({
             optionId: opt.optionId || opt.id || opt.option_id,
-            label: opt.label || opt.text || opt.option_text || 'Opción sin texto',
+            label:
+              opt.label || opt.text || opt.option_text || 'Opción sin texto',
             orderIndex: opt.order_index || opt.orderIndex || 0,
           }))
 
-          // Ordenar opciones por orderIndex
-          opcionesMapeadas.sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0))
+          opcionesMapeadas.sort(
+            (a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0),
+          )
 
           return {
             ...q,
-            questionId: questionId,
-            questionType: questionType,
+            questionId,
+            questionType,
             options: opcionesMapeadas,
           }
         } catch (error) {
-          console.error(`❌ Error cargando opciones para pregunta ${questionId}:`, error)
           return {
             ...q,
-            questionId: questionId,
-            questionType: questionType,
+            questionId,
+            questionType,
             options: [],
           }
         }
-      })
+      }),
     )
 
-    // 4. Mapear todas las preguntas al formato final
     const questionsMapeadas = questionsConOpciones.map((q: any) => ({
       questionId: q.questionId,
-      questionText: q.question_text || q.questionText || q.text || 'Pregunta sin texto',
+      questionText:
+        q.question_text || q.questionText || q.text || 'Pregunta sin texto',
       questionType: q.question_type || q.questionType || 'short_text',
-      isRequired: q.is_required !== undefined ? q.is_required : (q.isRequired !== undefined ? q.isRequired : true),
+      isRequired:
+        q.is_required !== undefined
+          ? q.is_required
+          : q.isRequired !== undefined
+            ? q.isRequired
+            : true,
       orderIndex: q.order_index || q.orderIndex || 0,
       options: q.options || [],
       scaleMin: q.scale_min || q.scaleMin || 1,
@@ -497,28 +687,27 @@ async function cargarCuestionario(tipo: 'pretest' | 'posttest') {
       allowNotApplicable: q.allow_not_applicable || q.allowNotApplicable || false,
     }))
 
-    // 5. Crear el objeto Questionnaire completo
     const questionnaireCompleto: Questionnaire = {
       questionnaire_id: meta.questionnaireId || meta.id || meta.questionnaire_id,
       title: meta.title || 'Cuestionario',
       description: meta.description || '',
-      questions: questionsMapeadas.sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+      questions: questionsMapeadas.sort(
+        (a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0),
+      ),
     }
-
-    console.log(`✅ Cuestionario ${tipo} completo:`, questionnaireCompleto)
 
     if (tipo === 'pretest') {
       pretestQuestionnaire.value = questionnaireCompleto
     } else {
       posttestQuestionnaire.value = questionnaireCompleto
     }
-
   } catch (e) {
     console.error('❌ Error cargando cuestionario', e)
   } finally {
     loadingQuestionnaire.value = false
   }
 }
+
 async function irAListaDeTareas() {
   loadingTasks.value = true
   try {
@@ -534,12 +723,16 @@ async function irAListaDeTareas() {
   }
 }
 
+function volverAListaDeTareas() {
+  currentTask.value = null
+  status.value = 'tasklist'
+}
 
-  function seleccionarTarea(task: Task) {
-    currentTask.value = task
-    status.value = 'idle'
-    resetGazeTracking()
-  }
+function seleccionarTarea(task: Task) {
+  currentTask.value = task
+  status.value = 'idle'
+  resetGazeTracking()
+}
 
 async function volverAListaOTerminar() {
   await nextTick()
@@ -563,11 +756,11 @@ async function volverAListaOTerminar() {
 }
 
 // ============================================================
-// CUESTIONARIOS
+// ENVÍO DE CUESTIONARIOS
 // ============================================================
 async function enviarRespuestasCuestionario(
   questionnaireId: string,
-  answers: QuestionAnswer[]
+  answers: QuestionAnswer[],
 ) {
   const participantId = auth.user?.user_id
 
@@ -610,17 +803,20 @@ async function enviarRespuestasCuestionario(
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ answerId, optionId }),
-            })
-          )
+            }),
+          ),
         )
       }
-    })
+    }),
   )
 }
 
 async function onPretestEnviado(answers: QuestionAnswer[]) {
   if (pretestQuestionnaire.value) {
-    await enviarRespuestasCuestionario(pretestQuestionnaire.value.questionnaire_id, answers)
+    await enviarRespuestasCuestionario(
+      pretestQuestionnaire.value.questionnaire_id,
+      answers,
+    )
   }
   pretestCompleted.value = true
   await irAListaDeTareas()
@@ -628,7 +824,10 @@ async function onPretestEnviado(answers: QuestionAnswer[]) {
 
 async function onPosttestEnviado(answers: QuestionAnswer[]) {
   if (posttestQuestionnaire.value) {
-    await enviarRespuestasCuestionario(posttestQuestionnaire.value.questionnaire_id, answers)
+    await enviarRespuestasCuestionario(
+      posttestQuestionnaire.value.questionnaire_id,
+      answers,
+    )
   }
   posttestCompleted.value = true
   status.value = 'finished'
@@ -640,13 +839,6 @@ async function onPosttestEnviado(answers: QuestionAnswer[]) {
 watch(transcribedText, async (newText) => {
   if (newText && newText.trim().length > 0) {
     await analyzeText(newText.trim())
-  }
-})
-
-onMounted(() => {
-  checkTextAIConnection()
-  if (!isAudioSupported) {
-    console.warn('⚠️ Tu navegador no soporta reconocimiento de voz')
   }
 })
 
@@ -688,7 +880,7 @@ async function saveTextSentiment(text: string, result: any) {
   try {
     const payload = {
       sessionId: sessionId.value,
-      text: text,
+      text,
       originalLabel: result.original_label || result.originalLabel || 'unknown',
       uxLabel: result.ux_label || result.uxLabel || 'Neutral',
       confidence: result.confidence || 0,
@@ -722,7 +914,7 @@ async function crearSesion() {
       nodeIdInicial: NODE_ID,
       taskId: currentTask.value?.taskId ?? null,
       taskDescription: currentTask.value?.description ?? '',
-      deviceType: /Mobi/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      deviceType: isMobile.value ? 'mobile' : 'desktop',
       browser: navigator.userAgent,
     }),
   })
@@ -737,10 +929,14 @@ async function cerrarSesion(status: 'completed' | 'abandoned') {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
-  }).catch(() => { })
+  }).catch(() => {})
 }
 
-async function registrarEvento(eventType: string, payload: unknown, nodeId?: string) {
+async function registrarEvento(
+  eventType: string,
+  payload: unknown,
+  nodeId?: string,
+) {
   if (!sessionId.value) return
   const tiempo = tiempoActual()
   eventosRegistrados.value++
@@ -760,7 +956,7 @@ async function registrarEvento(eventType: string, payload: unknown, nodeId?: str
       timestamp_real: new Date().toISOString(),
       raw_payload: payload ?? null,
     }),
-  }).catch(() => { })
+  }).catch(() => {})
 }
 
 async function registrarLecturaEmocion(reading: {
@@ -772,7 +968,6 @@ async function registrarLecturaEmocion(reading: {
   if (!sessionId.value) return
   lecturasEmocionRegistradas.value++
 
-
   fetch(`${BASE_URL}/emotion-readings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -783,10 +978,13 @@ async function registrarLecturaEmocion(reading: {
       dominantEmotion: reading.dominant_emotion,
       scoresJson: reading.scores,
     }),
-  }).catch(() => { })
+  }).catch(() => {})
 }
 
-async function subirVideo(blob: Blob, tipo: 'screen' | 'face'): Promise<string | null> {
+async function subirVideo(
+  blob: Blob,
+  tipo: 'screen' | 'face',
+): Promise<string | null> {
   if (!sessionId.value) return null
 
   const formData = new FormData()
@@ -795,10 +993,13 @@ async function subirVideo(blob: Blob, tipo: 'screen' | 'face'): Promise<string |
   formData.append('video_type', tipo)
 
   try {
-    const response = await fetch(`${BASE_URL}/usability-sessions/upload/video`, {
-      method: 'POST',
-      body: formData,
-    })
+    const response = await fetch(
+      `${BASE_URL}/usability-sessions/upload/video`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    )
     if (!response.ok) throw new Error('No se pudo subir el video')
     const data = await response.json()
     return data.videoKey
@@ -867,12 +1068,14 @@ function handleMessage(event: MessageEvent) {
   const data = event.data
   if (!data?.type || status.value !== 'running') return
 
-  // 🔥 Detectar node_id en distintos tipos de eventos
   let detectedNodeId: string | null = null
 
   if (data.type === 'PRESENTED_NODE_CHANGED' && data.data?.presentedNodeId) {
     detectedNodeId = data.data.presentedNodeId
-  } else if (data.type === 'MOUSE_PRESS_OR_RELEASE' && data.data?.presentedNodeId) {
+  } else if (
+    data.type === 'MOUSE_PRESS_OR_RELEASE' &&
+    data.data?.presentedNodeId
+  ) {
     detectedNodeId = data.data.presentedNodeId
   } else if (data.type === 'NEW_STATE' && data.data?.presentedNodeId) {
     detectedNodeId = data.data.presentedNodeId
@@ -880,11 +1083,9 @@ function handleMessage(event: MessageEvent) {
     detectedNodeId = data.data.presentedNodeId
   }
 
-  // 🔥 Si detectamos un node_id, actualizarlo
   if (detectedNodeId) {
     currentNodeId.value = detectedNodeId
 
-    // 🔥 Si el eye tracking aún no está activo, activarlo
     if (isGazeTracking.value && !isGazeReady.value) {
       activateGazeCapture()
       console.log('👁️ Eye tracking activado (primer node_id detectado)')
@@ -896,18 +1097,27 @@ function handleMessage(event: MessageEvent) {
       registrarEvento('INITIAL_LOAD', data.data)
       break
     case 'PRESENTED_NODE_CHANGED':
-      registrarEvento('PRESENTED_NODE_CHANGED', data.data, data.data?.presentedNodeId)
+      registrarEvento(
+        'PRESENTED_NODE_CHANGED',
+        data.data,
+        data.data?.presentedNodeId,
+      )
       break
     case 'NEW_STATE':
       registrarEvento('NEW_STATE', data.data)
       break
     case 'MOUSE_PRESS_OR_RELEASE':
-      registrarEvento('MOUSE_PRESS_OR_RELEASE', data.data, data.data?.presentedNodeId)
+      registrarEvento(
+        'MOUSE_PRESS_OR_RELEASE',
+        data.data,
+        data.data?.presentedNodeId,
+      )
       break
     default:
       registrarEvento(data.type, data.data)
   }
 }
+
 // ============================================================
 // INICIAR Y FINALIZAR RECORRIDO
 // ============================================================
@@ -930,50 +1140,53 @@ async function iniciarRecorrido() {
     if (faceStream) {
       faceChunks = []
       faceRecorder = new MediaRecorder(faceStream, { mimeType: 'video/webm' })
-      faceRecorder.ondataavailable = (e) => { if (e.data.size > 0) faceChunks.push(e.data) }
+      faceRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) faceChunks.push(e.data)
+      }
       faceRecorder.start()
     }
 
-
     if (screenStream) {
       screenChunks = []
-      screenRecorder = new MediaRecorder(screenStream, { mimeType: 'video/webm' })
-      screenRecorder.ondataavailable = (e) => { if (e.data.size > 0) screenChunks.push(e.data) }
+      screenRecorder = new MediaRecorder(screenStream, {
+        mimeType: 'video/webm',
+      })
+      screenRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) screenChunks.push(e.data)
+      }
       screenRecorder.start()
-      screenStream.getVideoTracks()[0]?.addEventListener('ended', finalizarRecorrido)
+      screenStream
+        .getVideoTracks()[0]
+        ?.addEventListener('ended', finalizarRecorrido)
     }
 
-    // Iniciar audio automáticamente
     if (!isAudioRecording.value) {
       const started = await startAudioRecording()
       if (started) {
         console.log('🎤 Grabación de audio iniciada automáticamente')
-        audioLevelInterval = setInterval(() => { }, 50)
+        audioLevelInterval = setInterval(() => {}, 50)
       }
     }
-    // 🔥 Iniciar captura de mapa de calor
-      // 🔥 Iniciar captura de mapa de calor
-      startHeatmap()
 
-      // 🔥 NUEVO: Iniciar eye tracking
-      if (stageRef.value?.faceVideoEl) {
-        startGazeTracking(
-          stageRef.value.faceVideoEl,
-          GAZE_CAPTURE_INTERVAL_MS,
-        )
-  console.log('👁️ Eye tracking listo (esperando primer node_id)')
-      }
+    startHeatmap()
 
-      window.addEventListener('message', handleMessage)
-      window.addEventListener('beforeunload', handleBeforeUnload)
- 
+    if (stageRef.value?.faceVideoEl) {
+      startGazeTracking(stageRef.value.faceVideoEl, GAZE_CAPTURE_INTERVAL_MS)
+      console.log('👁️ Eye tracking listo (esperando primer node_id)')
+    }
+
+    window.addEventListener('message', handleMessage)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 
     timerInterval = setInterval(() => {
-      if (startTimestamp.value) elapsedMs.value = Date.now() - startTimestamp.value
+      if (startTimestamp.value)
+        elapsedMs.value = Date.now() - startTimestamp.value
     }, 250)
 
-    emotionInterval = setInterval(analizarEmocionActual, EMOTION_CAPTURE_INTERVAL_MS)
-
+    emotionInterval = setInterval(
+      analizarEmocionActual,
+      EMOTION_CAPTURE_INTERVAL_MS,
+    )
   } catch (e) {
     console.error(e)
   } finally {
@@ -982,13 +1195,14 @@ async function iniciarRecorrido() {
 }
 
 async function finalizarRecorrido() {
-  //  Detener captura de mapa de calor
   stopHeatmap()
-   if (isGazeTracking.value) {
-      await stopGazeTracking()
-      await calculateAOIMetrics()
-      console.log('👁️ Eye tracking detenido y métricas calculadas')
-    }
+
+  if (isGazeTracking.value) {
+    await stopGazeTracking()
+    await calculateAOIMetrics()
+    console.log('👁️ Eye tracking detenido y métricas calculadas')
+  }
+
   if (isAudioRecording.value) {
     const finalText = await stopAudioRecording()
     if (finalText) {
@@ -1020,7 +1234,9 @@ async function finalizarRecorrido() {
   await volverAListaOTerminar()
 }
 
-function detenerRecorder(recorder: MediaRecorder | null): Promise<Blob | null> {
+function detenerRecorder(
+  recorder: MediaRecorder | null,
+): Promise<Blob | null> {
   return new Promise((resolve) => {
     if (!recorder || recorder.state === 'inactive') {
       resolve(null)
@@ -1048,13 +1264,16 @@ function handleBeforeUnload() {
   if (status.value === 'running') {
     navigator.sendBeacon?.(
       `${BASE_URL}/usability-sessions/${sessionId.value}`,
-      JSON.stringify({ status: 'abandoned', duration_seconds: Math.floor(elapsedMs.value / 1000) })
+      JSON.stringify({
+        status: 'abandoned',
+        duration_seconds: Math.floor(elapsedMs.value / 1000),
+      }),
     )
   }
 }
 
 // ============================================================
-// FUNCIÓN PARA OBTENER EVENTO MÁS CERCANO
+// HELPERS
 // ============================================================
 function getNearestEvent(ms: number): any | null {
   if (!events.value.length) return null
@@ -1065,12 +1284,8 @@ function getNearestEvent(ms: number): any | null {
   })
 }
 
-// ============================================================
-// FUNCIÓN PARA MANEJAR REPORTES
-// ============================================================
 async function onReporteEnviado(data: any) {
   try {
-    // Preparar el payload según el formato esperado por el backend
     const payload = {
       sessionId: data.sessionId,
       elapsedMsTotal: data.elapsedMsTotal,
@@ -1079,14 +1294,14 @@ async function onReporteEnviado(data: any) {
       authorId: auth.user?.user_id || null,
     }
 
-    // Enviar al backend
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/session-comments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/session-comments`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    })
+    )
 
     if (!response.ok) {
       throw new Error(`Error al guardar el reporte: ${response.status}`)
@@ -1095,7 +1310,6 @@ async function onReporteEnviado(data: any) {
     const result = await response.json()
     console.log('✅ Reporte guardado:', result)
 
-    // Agregar el comentario a la lista local
     comments.value.push({
       commentId: result.commentId || crypto.randomUUID(),
       sessionId: data.sessionId,
@@ -1103,15 +1317,11 @@ async function onReporteEnviado(data: any) {
       text: data.text,
       createdAt: new Date().toISOString(),
     })
-
   } catch (error) {
     console.error('Error al enviar reporte:', error)
   }
 }
-// ============================================================
-// ACCIONES PRINCIPALES
-// ============================================================
-// Asegúrate de que seekAbsoluto existe
+
 function seekAbsoluto(ms: number) {
   const seconds = Math.max(0, ms) / 1000
   if (screenVideoEl.value) screenVideoEl.value.currentTime = seconds
@@ -1120,8 +1330,16 @@ function seekAbsoluto(ms: number) {
 }
 
 // ============================================================
-// CLEANUP
+// LIFECYCLE
 // ============================================================
+onMounted(async () => {
+  checkTextAIConnection()
+  await listDevices()
+  if (!isAudioSupported) {
+    console.warn('⚠️ Tu navegador no soporta reconocimiento de voz')
+  }
+})
+
 onBeforeUnmount(() => {
   if (timerInterval) clearInterval(timerInterval)
   if (emotionInterval) clearInterval(emotionInterval)
@@ -1131,6 +1349,6 @@ onBeforeUnmount(() => {
   faceStream?.getTracks().forEach((t) => t.stop())
   screenStream?.getTracks().forEach((t) => t.stop())
   cleanupAudio()
-      stopGazeTracking()
+  stopGazeTracking()
 })
 </script>

@@ -8,6 +8,7 @@ export interface SelectedFigmaProject {
   projectId: string
   fileKey: string
   projectName: string
+  publicUrl?: string  
 }
 
 export const useFigmaSessionStore = defineStore('figmaSession', () => {

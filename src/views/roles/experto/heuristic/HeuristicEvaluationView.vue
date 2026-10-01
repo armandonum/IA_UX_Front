@@ -1,14 +1,23 @@
+
+<!-- HeuristicEvaluationView.vue -->
 <template>
   <div class="w-full h-screen relative">
     <!-- ====== CONSENTIMIENTO ====== -->
-    <HeuristicConsentModal
-      :show="status === 'consent'"
-      :checked="consentChecked"
-      :loading="loadingPermissions"
-      :error="permissionsError"
-      @update:checked="consentChecked = $event"
-      @continuar="pedirPermisosYContinuar"
-    />
+<HeuristicConsentModal
+  :show="status === 'consent'"
+  :checked="consentChecked"
+  :loading="loadingPermissions"
+  :error="permissionsError"
+  @update:checked="consentChecked = $event"
+  @continuar="abrirSelectorDispositivos"
+/>
+
+<!-- 🆕 Selector de dispositivos -->
+<DeviceSelectorModal
+  v-model="showDeviceSelector"
+  @confirmed="onDevicesConfirmed"
+  @cancelled="onDeviceSelectorCancelled"
+/>
 
     <!-- ====== LISTA DE TAREAS ====== -->
     <HeuristicTaskList
@@ -105,6 +114,8 @@ import HeuristicFloatingForm from '@/components/experto/heuristic/HeuristicFloat
 import HeuristicStatusBar from '@/components/experto/heuristic/HeuristicStatusBar.vue'
 import HeuristicAudioBar from '@/components/experto/heuristic/HeuristicAudioBar.vue'
 import HeuristicFinishModal from '@/components/experto/heuristic/HeuristicFinishModal.vue'
+import DeviceSelectorModal from '@/components/estudiante/usability/DeviceSelectorModal.vue'
+import { useMediaDevices } from '@/composables/useMediaDevices'
 
 const route = useRoute()
 const router = useRouter()
@@ -175,6 +186,23 @@ const loadingPermissions = ref(false)
 const loadingTasks = ref(false)
 const saving = ref(false)
 const permissionsError = ref<string | null>(null)
+
+
+  interface DeviceSelection {
+  videoDeviceId: string
+  audioDeviceId: string
+  videoLabel: string
+  audioLabel: string
+}
+
+const selectedDevices = ref<DeviceSelection | null>(null)
+const showDeviceSelector = ref(false)
+
+const {
+  videoDevices,
+  audioDevices,
+  listDevices,
+} = useMediaDevices()
 
 const stageRef = ref<InstanceType<typeof PrototypeStage> | null>(null)
 const faceVideoEl = ref<HTMLVideoElement | null>(null)
@@ -331,6 +359,7 @@ onMounted(async () => {
 
   // 🔥 Agregar listener de debug
   window.addEventListener('message', debugMessageListener)
+   await listDevices()
 
   try {
     loadingTasks.value = true
@@ -365,33 +394,109 @@ onMounted(async () => {
 // ============================================================
 // PERMISOS
 // ============================================================
+/**
+ * Paso 1: Usuario acepta consentimiento → abrir selector de dispositivos
+ */
+async function abrirSelectorDispositivos() {
+  if (!consentChecked.value) return
+
+  // Cargar dispositivos disponibles
+  await listDevices()
+
+  // Abrir el modal
+  showDeviceSelector.value = true
+}
+
+/**
+ * Paso 2: Usuario confirma dispositivos → pedir permisos reales
+ */
+async function onDevicesConfirmed(selection: {
+  videoDeviceId: string
+  audioDeviceId: string
+}) {
+  const videoDevice = videoDevices.value.find(
+    (d) => d.deviceId === selection.videoDeviceId,
+  )
+  const audioDevice = audioDevices.value.find(
+    (d) => d.deviceId === selection.audioDeviceId,
+  )
+
+  selectedDevices.value = {
+    videoDeviceId: selection.videoDeviceId,
+    audioDeviceId: selection.audioDeviceId,
+    videoLabel: videoDevice?.label || 'Cámara',
+    audioLabel: audioDevice?.label || 'Micrófono',
+  }
+
+  showDeviceSelector.value = false
+
+  console.log('✅ [Heuristic] Dispositivos seleccionados:', selectedDevices.value)
+
+  // Ahora sí, pedir permisos reales
+  await pedirPermisosYContinuar()
+}
+
+function onDeviceSelectorCancelled() {
+  showDeviceSelector.value = false
+  // Se queda en consent
+}
+
+/**
+ * Paso 3: Pedir permisos reales con los deviceIds seleccionados
+ */
 async function pedirPermisosYContinuar() {
   loadingPermissions.value = true
   permissionsError.value = null
 
+  const videoDeviceId = selectedDevices.value?.videoDeviceId
+  const audioDeviceId = selectedDevices.value?.audioDeviceId
+
+  if (!videoDeviceId || !audioDeviceId) {
+    permissionsError.value = 'Debes seleccionar cámara y micrófono primero.'
+    loadingPermissions.value = false
+    showDeviceSelector.value = true
+    return
+  }
+
+  // 1. CÁMARA + MICRÓFONO
   try {
     const faceStreamWithAudio = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
+      video: { deviceId: { exact: videoDeviceId } },
+      audio: { deviceId: { exact: audioDeviceId } },
     })
     faceStream = faceStreamWithAudio
-  } catch (e) {
+  } catch (e: any) {
     console.error('❌ [Permisos] Error cámara/micrófono:', e)
-    permissionsError.value = 'No se pudo acceder a la cámara o micrófono.'
+    const name = e?.name || ''
+    if (name === 'NotAllowedError')
+      permissionsError.value = 'Permiso de cámara/micrófono denegado.'
+    else if (name === 'NotFoundError')
+      permissionsError.value = 'Dispositivo no encontrado.'
+    else if (name === 'NotReadableError')
+      permissionsError.value = 'Dispositivo en uso por otra aplicación.'
+    else permissionsError.value = 'No se pudo acceder a la cámara o micrófono.'
     loadingPermissions.value = false
     return
   }
 
-  try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: false,
-    })
-  } catch (e) {
-    console.error('❌ [Permisos] Error pantalla:', e)
-    permissionsError.value = 'No se pudo acceder a la pantalla.'
-    loadingPermissions.value = false
-    return
+  // 2. PANTALLA (solo desktop)
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+  if (!isMobile) {
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      })
+    } catch (e: any) {
+      console.error('❌ [Permisos] Error pantalla:', e)
+      if (e?.name === 'NotAllowedError')
+        permissionsError.value = 'No compartiste la pantalla.'
+      else permissionsError.value = 'No se pudo acceder a la pantalla.'
+      loadingPermissions.value = false
+      return
+    }
+  } else {
+    console.warn('📱 Modo móvil: sin grabación de pantalla')
   }
 
   loadingPermissions.value = false

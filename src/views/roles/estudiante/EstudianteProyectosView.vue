@@ -1,6 +1,6 @@
+<!-- EstudianteProyectosView.vue -->
 <template>
   <div class="q-pa-lg">
-
     <div class="text-h5 text-weight-bold q-mb-md">
       Selecciona un proyecto para evaluar
     </div>
@@ -13,7 +13,7 @@
     <q-banner
       v-if="clientIdError"
       dense
-      rounded
+      roundeda
       class="bg-negative text-white q-mb-md"
       style="max-width: 420px"
     >
@@ -39,7 +39,11 @@
         :key="project.projectId"
         class="col-12 col-sm-6 col-md-4 col-lg-3"
       >
-        <ProjectCard :project="project" @select="irAEvaluacion" />
+        <ProjectCard
+          :project="project"
+          @select="irAEvaluacion"
+          @open-prototype="abrirPrototipo"
+        />
       </div>
     </div>
 
@@ -49,13 +53,13 @@
     >
       No hay proyectos disponibles.
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { useFigmaProjects } from '@/composables/useFigmaProjects'
 import { useFigmaSessionStore } from '@/stores/figmaSession.store'
 import ClientIdInput from '@/components/estudiante/figma/ClientIdInput.vue'
@@ -63,6 +67,7 @@ import ProjectCard from '@/components/estudiante/figma/ProjectCard.vue'
 import type { FigmaProject } from '@/types/figmaProject'
 
 const router = useRouter()
+const $q = useQuasar()
 const figmaSession = useFigmaSessionStore()
 const { projects, loading, error, fetchProjects } = useFigmaProjects()
 
@@ -70,6 +75,9 @@ const clientIdError = ref<string | null>(null)
 
 onMounted(fetchProjects)
 
+/**
+ * Entra a la evaluación del proyecto
+ */
 function irAEvaluacion(project: FigmaProject) {
   if (!figmaSession.clientId.trim()) {
     clientIdError.value = 'Ingresa el Client ID de Figma antes de continuar.'
@@ -81,11 +89,27 @@ function irAEvaluacion(project: FigmaProject) {
     projectId: project.projectId,
     fileKey: project.fileKey,
     projectName: project.projectName,
+    publicUrl: project.publicUrl,     // 🆕 Guardar URL en el store
   })
-console.log("el proyecto :", project.fileKey)
+
   router.push({
     name: 'estudiante-evaluacion',
     params: { fileKey: project.fileKey },
   })
+}
+
+/**
+ * Abre el prototipo público en una nueva pestaña
+ */
+function abrirPrototipo(project: FigmaProject) {
+  if (!project.publicUrl) {
+    $q.notify({
+      type: 'warning',
+      message: 'Este proyecto no tiene URL pública configurada.',
+    })
+    return
+  }
+
+  window.open(project.publicUrl, '_blank', 'noopener,noreferrer')
 }
 </script>

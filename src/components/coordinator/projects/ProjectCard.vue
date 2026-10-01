@@ -61,6 +61,20 @@
           </span>
         </div>
       </div>
+      <div v-if="project.publicUrl" class="q-mt-xs">
+  <q-btn
+    flat
+    dense
+    size="sm"
+    color="primary"
+    icon="open_in_new"
+    label="Abrir prototipo"
+    no-caps
+    :href="project.publicUrl"
+    target="_blank"
+    @click.stop
+  />
+</div>
 
       <div class="row items-center q-gutter-md text-caption text-grey-6 q-mt-xs">
         <div class="row items-center">
