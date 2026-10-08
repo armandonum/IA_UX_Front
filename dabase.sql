@@ -1518,3 +1518,7 @@ CREATE TABLE usability.heuristic_final_results (
 -- Índices
 CREATE INDEX idx_heuristic_result_evaluation ON usability.heuristic_final_results(evaluation_id);
 
+
+
+
+

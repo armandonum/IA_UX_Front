@@ -1,229 +1,358 @@
-<!-- components/expert/cognitive/CognitiveTaskList.vue -->
+<!-- components/experto/cognitive/CognitiveTaskList.vue -->
 <template>
-  <div class="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+  <div class="q-pa-lg">
+    <!-- ============================================================ -->
+    <!-- HEADER                                                        -->
+    <!-- ============================================================ -->
+    <div class="row items-center justify-between q-mb-md">
+      <div>
+        <q-btn
+          flat
+          dense
+          color="primary"
+          icon="arrow_back"
+          label="Cambiar evaluación"
+          class="q-mb-xs"
+          @click="$emit('back')"
+        />
+        <div class="text-h5 text-weight-bold">
+          📋 Tareas de la Evaluación
+        </div>
+        <div class="text-body2 text-grey-7 q-mt-xs">
+          {{ evaluationName || 'Evaluación Cognitiva' }}
+        </div>
+      </div>
 
-    <!-- Header -->
-    <div class="mb-8">
-      <div class="flex items-center gap-4">
+      <div class="text-right">
+        <q-chip color="primary" text-color="white" :label="`${tasks.length} tareas`" />
+        <q-chip
+          v-if="completedCount > 0"
+          color="positive"
+          text-color="white"
+          :label="`${completedCount} completadas`"
+        />
+      </div>
+    </div>
 
-        <div
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50"
-        >
-          <q-icon
-            name="assignment"
-            size="26px"
+    <!-- ============================================================ -->
+    <!-- DISPOSITIVOS                                                  -->
+    <!-- ============================================================ -->
+    <q-card flat bordered class="q-mb-md">
+      <q-card-section>
+        <div class="row items-center justify-between">
+          <div>
+            <div class="text-subtitle2 text-weight-bold">
+              🎥 Dispositivos de grabación
+            </div>
+            <div class="text-caption text-grey-6">
+              Selecciona cámara y micrófono antes de comenzar
+            </div>
+          </div>
+
+          <q-btn
+            unelevated
             color="primary"
+            icon="tune"
+            label="Seleccionar dispositivos"
+            @click="showDeviceSelector = true"
           />
         </div>
 
-        <div>
-          <h2 class="text-2xl font-bold text-slate-900">
-            Tareas de evaluación
-          </h2>
-
-          <p class="mt-1 text-sm text-slate-500">
-            {{ evaluationName || 'Evaluación Cognitiva' }}
-          </p>
+        <!-- Info de dispositivos seleccionados -->
+        <div v-if="selectedDevices" class="row q-mt-sm q-gutter-md">
+          <q-chip
+            color="positive"
+            text-color="white"
+            icon="videocam"
+            :label="selectedDevices.videoLabel"
+          />
+          <q-chip
+            color="positive"
+            text-color="white"
+            icon="mic"
+            :label="selectedDevices.audioLabel"
+          />
         </div>
 
-      </div>
+        <q-banner
+          v-else
+          dense
+          rounded
+          class="bg-orange-1 text-orange-10 q-mt-sm"
+        >
+          <template #avatar>
+            <q-icon name="warning" />
+          </template>
+          <div class="text-caption">
+            Debes seleccionar los dispositivos antes de iniciar una tarea.
+          </div>
+        </q-banner>
+      </q-card-section>
+    </q-card>
+
+    <!-- ============================================================ -->
+    <!-- LOADING                                                       -->
+    <!-- ============================================================ -->
+    <div v-if="loading" class="column items-center q-py-xl">
+      <q-spinner color="primary" size="48px" />
+      <div class="text-caption text-grey-7 q-mt-sm">Cargando tareas...</div>
     </div>
 
-    <!-- Loading -->
-    <div
-      v-if="loading"
-      class="flex min-h-[280px] items-center justify-center"
+    <!-- ============================================================ -->
+    <!-- EMPTY                                                         -->
+    <!-- ============================================================ -->
+    <q-card
+      v-else-if="!tasks.length"
+      flat
+      bordered
+      class="text-center q-pa-xl"
     >
-      <div class="flex flex-col items-center gap-3">
-        <q-spinner
-          color="primary"
-          size="42px"
-        />
-
-        <span class="text-sm text-slate-500">
-          Cargando tareas...
-        </span>
-      </div>
-    </div>
-
-    <!-- Empty -->
-    <div
-      v-else-if="tasks.length === 0"
-      class="rounded-2xl border border-slate-200 px-6 py-12 text-center"
-    >
-      <div
-        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50"
-      >
-        <q-icon
-          name="check_circle"
-          size="34px"
-          color="positive"
-        />
-      </div>
-
-      <h3 class="mt-5 text-lg font-semibold text-slate-900">
+      <q-icon name="check_circle" size="64px" color="positive" />
+      <div class="text-h6 text-grey-7 q-mt-md">
         ¡Todas las tareas completadas!
-      </h3>
+      </div>
+      <div class="text-caption text-grey-6 q-mt-xs">
+        Has completado todas las tareas de esta evaluación
+      </div>
+    </q-card>
 
-      <p class="mt-2 text-sm text-slate-500">
-        Has completado todas las tareas disponibles para esta evaluación.
-      </p>
-    </div>
-
-    <!-- Tasks -->
-    <div
-      v-else
-      class="grid gap-4"
-    >
-
+    <!-- ============================================================ -->
+    <!-- LISTA DE TAREAS                                               -->
+    <!-- ============================================================ -->
+    <div v-else class="q-gutter-y-md">
       <q-card
-        v-for="task in tasks"
+        v-for="(task, index) in sortedTasks"
         :key="task.id"
         flat
-        class="group rounded-2xl border border-slate-200 bg-white transition-all duration-200 hover:border-blue-200 hover:shadow-md"
-        :class="{
-          'border-green-200': isCompleted(task.id)
-        }"
+        bordered
+        class="task-card"
+        :class="{ 'task-completed': isCompleted(task.id) }"
       >
-        <q-card-section class="p-5">
+        <q-card-section>
+          <div class="row items-start no-wrap q-gutter-md">
+            <!-- Número -->
+            <q-avatar
+              :color="isCompleted(task.id) ? 'positive' : 'primary'"
+              text-color="white"
+              size="40px"
+            >
+              <q-icon
+                :name="isCompleted(task.id) ? 'check' : 'assignment'"
+                size="20px"
+              />
+            </q-avatar>
 
-          <div class="flex items-start justify-between gap-4">
-
-            <!-- Task information -->
-            <div class="flex min-w-0 items-start gap-4">
-
-              <!-- Status icon -->
-              <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                :class="
-                  isCompleted(task.id)
-                    ? 'bg-green-50'
-                    : 'bg-amber-50'
-                "
-              >
-                <q-icon
-                  :name="
-                    isCompleted(task.id)
-                      ? 'check_circle'
-                      : 'pending'
-                  "
-                  :color="
-                    isCompleted(task.id)
-                      ? 'positive'
-                      : 'warning'
-                  "
-                  size="23px"
+            <!-- Contenido -->
+            <div class="col">
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <div class="text-subtitle1 text-weight-bold">
+                  {{ index + 1 }}. {{ task.title }}
+                </div>
+                <q-badge
+                  v-if="isCompleted(task.id)"
+                  color="positive"
+                  text-color="white"
+                  label="Completada"
                 />
               </div>
 
-              <!-- Content -->
-              <div class="min-w-0">
-
-                <div class="flex flex-wrap items-center gap-2">
-
-                  <h3
-                    class="font-semibold text-slate-900"
-                  >
-                    {{ task.title }}
-                  </h3>
-
-                  <q-badge
-                    v-if="isCompleted(task.id)"
-                    color="positive"
-                    outline
-                  >
-                    Completada
-                  </q-badge>
-
-                </div>
-
-                <p
-                  v-if="task.description"
-                  class="mt-1 text-sm leading-5 text-slate-600"
-                >
-                  {{ task.description }}
-                </p>
-
-                <p
-                  v-if="task.userGoal"
-                  class="mt-2 flex items-start gap-1 text-xs text-slate-500"
-                >
-                  <q-icon
-                    name="flag"
-                    size="15px"
-                  />
-
-                  <span>
-                    {{ task.userGoal }}
-                  </span>
-                </p>
-
+              <div
+                v-if="task.description"
+                class="text-body2 text-grey-7 q-mb-xs"
+              >
+                {{ task.description }}
               </div>
 
+              <div
+                v-if="task.userGoal"
+                class="row items-center text-caption text-grey-6 q-mt-xs"
+              >
+                <q-icon name="flag" size="14px" class="q-mr-xs" />
+                <span><strong>Meta:</strong> {{ task.userGoal }}</span>
+              </div>
+
+              <!-- Info adicional -->
+              <div class="row items-center q-gutter-md text-caption text-grey-6 q-mt-sm">
+                <div class="row items-center">
+                  <q-icon name="list_alt" size="14px" class="q-mr-xs" />
+                  {{ getTaskActionsCount(task.id) }} acciones del flujo ideal
+                </div>
+              </div>
             </div>
 
-            <!-- Actions -->
-            <div class="flex shrink-0 items-center gap-2">
-
-              <q-badge
+            <!-- Acciones -->
+            <div class="column items-end q-gutter-xs">
+              <q-btn
                 v-if="!isCompleted(task.id)"
+                unelevated
                 color="primary"
-                outline
+                icon="play_arrow"
+                label="Iniciar"
+                size="sm"
+                :disable="!selectedDevices"
+                @click="onSelectTask(task)"
               >
-                {{ task.actionsCount || 0 }}
-                {{ task.actionsCount === 1 ? 'acción' : 'acciones' }}
-              </q-badge>
+                <q-tooltip v-if="!selectedDevices">
+                  Selecciona los dispositivos primero
+                </q-tooltip>
+              </q-btn>
 
               <q-btn
-                :color="
-                  isCompleted(task.id)
-                    ? 'grey'
-                    : 'primary'
-                "
-                :label="
-                  isCompleted(task.id)
-                    ? 'Completada'
-                    : 'Iniciar'
-                "
-                :disable="isCompleted(task.id)"
-                unelevated
-                no-caps
+                v-else
+                flat
+                color="positive"
+                icon="check_circle"
+                label="Completada"
                 size="sm"
-                icon="play_arrow"
-                @click.stop="selectTask(task)"
+                disable
               />
-
             </div>
-
           </div>
-
         </q-card-section>
       </q-card>
-
     </div>
 
+    <!-- ============================================================ -->
+    <!-- MODAL DE DISPOSITIVOS                                         -->
+    <!-- ============================================================ -->
+    <DeviceSelectorModal
+      v-model="showDeviceSelector"
+      @confirmed="onDevicesConfirmed"
+      @cancelled="showDeviceSelector = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useQuasar } from 'quasar'
+import DeviceSelectorModal from '@/components/estudiante/usability/DeviceSelectorModal.vue'
+
+// ============================================================
+// TIPOS
+// ============================================================
+interface DeviceSelection {
+  videoDeviceId: string
+  audioDeviceId: string
+  videoLabel: string
+  audioLabel: string
+}
+
+// ============================================================
+// PROPS & EMITS
+// ============================================================
 const props = defineProps<{
   tasks: any[]
-  completedTaskIds: Set<string>
+  completedTaskIds?: Set<string> | string[]
   loading?: boolean
   evaluationName?: string
+  deviceSelection?: DeviceSelection | null
 }>()
 
 const emit = defineEmits<{
   (e: 'select', task: any): void
+  (e: 'back'): void
+  (e: 'devices-selected', selection: { videoDeviceId: string; audioDeviceId: string }): void
 }>()
 
-const isCompleted = (taskId: string) => {
+const $q = useQuasar()
+
+// ============================================================
+// STATE
+// ============================================================
+const showDeviceSelector = ref(false)
+const selectedDevices = ref<DeviceSelection | null>(props.deviceSelection ?? null)
+
+// ============================================================
+// COMPUTED
+// ============================================================
+const sortedTasks = computed(() =>
+  [...props.tasks].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+)
+
+const completedCount = computed(() => {
+  if (!props.completedTaskIds) return 0
+  const ids = Array.isArray(props.completedTaskIds)
+    ? props.completedTaskIds
+    : Array.from(props.completedTaskIds)
+  return ids.length
+})
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isCompleted(taskId: string): boolean {
+  if (!props.completedTaskIds) return false
+  if (Array.isArray(props.completedTaskIds)) {
+    return props.completedTaskIds.includes(taskId)
+  }
   return props.completedTaskIds.has(taskId)
 }
 
-const selectTask = (task: any) => {
-  if (isCompleted(task.id)) return
+function getTaskActionsCount(taskId: string): number {
+  // TODO: Si tienes la data de acciones por tarea, muéstrala aquí
+  return 0
+}
 
+// ============================================================
+// ACTIONS
+// ============================================================
+function onSelectTask(task: any) {
+  if (!selectedDevices.value) {
+    $q.notify({
+      type: 'warning',
+      message: 'Selecciona los dispositivos primero',
+      icon: 'warning',
+    })
+    showDeviceSelector.value = true
+    return
+  }
   emit('select', task)
 }
+
+function onDevicesConfirmed(selection: {
+  videoDeviceId: string
+  audioDeviceId: string
+}) {
+  // Buscar labels — el DeviceSelectorModal ya los debería enviar,
+  // pero por si acaso, pedimos los labels via emit
+  selectedDevices.value = {
+    videoDeviceId: selection.videoDeviceId,
+    audioDeviceId: selection.audioDeviceId,
+    videoLabel: 'Cámara',
+    audioLabel: 'Micrófono',
+  }
+  showDeviceSelector.value = false
+  emit('devices-selected', selection)
+
+  $q.notify({
+    type: 'positive',
+    message: 'Dispositivos seleccionados',
+    icon: 'check_circle',
+  })
+}
+
+// ============================================================
+// EXPOSE (para que el padre pueda resetear)
+// ============================================================
+defineExpose({
+  selectedDevices,
+})
 </script>
+
+<style scoped>
+.task-card {
+  transition: all 0.2s ease;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.task-card:hover {
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.08);
+}
+
+.task-completed {
+  border-left: 4px solid #22c55e;
+  background: #f0fdf4;
+}
+</style>

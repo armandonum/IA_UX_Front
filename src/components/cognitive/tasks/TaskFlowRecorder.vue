@@ -8,7 +8,7 @@
     <div class="row items-center justify-between q-mb-md">
       <div>
         <div class="text-h6 text-dark">
-          Grabar Flujo Ideal
+          Grabar Flujo Ideal asdasd
         </div>
 
         <div class="text-body2 text-secondary q-mt-xs">
@@ -19,7 +19,7 @@
       <div class="row q-gutter-sm">
         <q-btn
           v-if="!isRecording"
-          color="primary"
+          color="primary" 
           text-color="white"
           icon="add"
           label="Nuevo Flujo"
@@ -352,38 +352,34 @@
         <!-- ======================================================== -->
         <!-- CHIPS DE PASOS -->
         <!-- ======================================================== -->
-        <div class="row q-gutter-sm q-mb-md">
-
-          <q-chip
-            v-for="(click, index) in currentFlowClicks"
-            :key="click.clickId"
-            :color="
-              click.source === 'figma'
-                ? 'info'
-                : 'primary'
-            "
-            text-color="white"
-            size="sm"
-            clickable
-            @click="showStepDetail(click)"
-          >
-
-            {{ index + 1 }}.
-            {{ truncateText(click.nodeId, 25) }}
-
-            <q-badge
-              v-if="click.source === 'figma'"
-              color="white"
-              text-color="info"
-              class="q-ml-xs"
-              size="xs"
-            >
-              ⚡
-            </q-badge>
-
-          </q-chip>
-
-        </div>
+       <div class="row q-gutter-sm q-mb-md">
+  <q-chip
+    v-for="(click, index) in currentFlowClicks"
+    :key="click.clickId"
+    :color="getChipColor(click)"
+    text-color="white"
+    size="sm"
+    clickable
+    @click="showStepDetail(click)"
+  >
+    <q-icon
+      :name="getEventIcon(click.eventType)"
+      size="14px"
+      class="q-mr-xs"
+    />
+    {{ index + 1 }}.
+    {{ truncateText(click.nodeId, 30) }}
+    <q-badge
+      v-if="click.source === 'figma'"
+      color="white"
+      text-color="info"
+      class="q-ml-xs"
+      size="xs"
+    >
+      ⚡
+    </q-badge>
+  </q-chip>
+</div>
 
         <!-- ======================================================== -->
         <!-- TABLA DE PASOS -->
@@ -439,27 +435,19 @@
 
             </q-td>
           </template>
-
-          <template v-slot:body-cell-source="props">
-            <q-td>
-
-              <q-badge
-                :color="
-                  props.row.source === 'figma'
-                    ? 'info'
-                    : 'primary'
-                "
-                text-color="white"
-              >
-                {{
-                  props.row.source === 'figma'
-                    ? 'Automático'
-                    : 'Manual'
-                }}
-              </q-badge>
-
-            </q-td>
-          </template>
+<!-- 🆕 Columna de tipo de evento -->
+<template v-slot:body-cell-eventType="props">
+  <q-td>
+    <q-badge
+      v-if="props.row.eventType"
+      :color="getEventTypeColor(props.row.eventType)"
+      text-color="white"
+    >
+      {{ getEventTypeLabel(props.row.eventType) }}
+    </q-badge>
+    <span v-else class="text-grey-5">—</span>
+  </q-td>
+</template>
 
           <template v-slot:body-cell-clickedAt="props">
             <q-td class="text-dark">
@@ -538,87 +526,80 @@
         </q-card-section>
 
         <q-card-section v-if="selectedStep">
+  <div class="q-gutter-y-md">
+    <!-- Descripción principal -->
+    <div>
+      <div class="text-subtitle2 text-secondary">Descripción</div>
+      <div class="text-body1 text-dark">
+        {{ selectedStep.nodeId }}
+      </div>
+    </div>
 
-          <div class="q-gutter-y-md">
+    <!-- Tipo de evento -->
+    <div class="row q-col-gutter-md">
+      <div class="col-6">
+        <div class="text-subtitle2 text-secondary">Tipo de evento</div>
+        <q-badge
+          v-if="selectedStep.eventType"
+          :color="getEventTypeColor(selectedStep.eventType)"
+          text-color="white"
+        >
+          {{ getEventTypeLabel(selectedStep.eventType) }}
+        </q-badge>
+        <span v-else class="text-grey-5">—</span>
+      </div>
+      <div class="col-6">
+        <div class="text-subtitle2 text-secondary">Origen</div>
+        <q-badge
+          :color="selectedStep.source === 'figma' ? 'info' : 'primary'"
+          text-color="white"
+        >
+          {{ selectedStep.source === 'figma' ? '⚡ Automático' : '✏️ Manual' }}
+        </q-badge>
+      </div>
+    </div>
 
-            <div>
-              <div class="text-subtitle2 text-secondary">
-                Descripción
-              </div>
+    <!-- Componente clickeado -->
+    <div v-if="selectedStep.metadata?.targetName">
+      <div class="text-subtitle2 text-secondary">Componente interactuado</div>
+      <div class="text-body1 text-dark">
+        {{ selectedStep.metadata.targetName }}
+      </div>
+    </div>
 
-              <div class="text-body1 text-dark">
-                {{ selectedStep.nodeId }}
-              </div>
-            </div>
+    <!-- Pantalla actual -->
+    <div v-if="selectedStep.metadata?.screenName">
+      <div class="text-subtitle2 text-secondary">Pantalla</div>
+      <div class="text-body1 text-dark">
+        {{ selectedStep.metadata.screenName }}
+      </div>
+    </div>
 
-            <div class="row q-col-gutter-md">
+    <!-- ID del nodo (técnico) -->
+    <div>
+      <div class="text-subtitle2 text-secondary">ID del Nodo (técnico)</div>
+      <div class="text-dark text-caption font-mono bg-grey-2 q-pa-sm rounded-borders">
+        {{ selectedStep.presentedNodeId || 'No disponible' }}
+      </div>
+    </div>
 
-              <div class="col-6">
+    <!-- Orden -->
+    <div>
+      <div class="text-subtitle2 text-secondary">Orden</div>
+      <div class="text-body1 text-dark">
+        {{ selectedStep.orderIndex }}
+      </div>
+    </div>
 
-                <div class="text-subtitle2 text-secondary">
-                  Tipo
-                </div>
-
-                <q-badge
-                  :color="
-                    selectedStep.source === 'figma'
-                      ? 'info'
-                      : 'primary'
-                  "
-                  text-color="white"
-                >
-                  {{
-                    selectedStep.source === 'figma'
-                      ? '⚡ Automático'
-                      : '✏️ Manual'
-                  }}
-                </q-badge>
-
-              </div>
-
-              <div class="col-6">
-
-                <div class="text-subtitle2 text-secondary">
-                  Orden
-                </div>
-
-                <div class="text-body1 text-dark">
-                  {{ selectedStep.orderIndex }}
-                </div>
-
-              </div>
-
-            </div>
-
-            <div>
-
-              <div class="text-subtitle2 text-secondary">
-                ID del Nodo
-              </div>
-
-              <div
-                class="text-dark text-caption font-mono bg-grey-2 q-pa-sm rounded-borders"
-              >
-                {{ selectedStep.presentedNodeId || 'No disponible' }}
-              </div>
-
-            </div>
-
-            <div>
-
-              <div class="text-subtitle2 text-secondary">
-                Fecha
-              </div>
-
-              <div class="text-body1 text-dark">
-                {{ formatDate(selectedStep.clickedAt) }}
-              </div>
-
-            </div>
-
-          </div>
-
-        </q-card-section>
+    <!-- Fecha -->
+    <div>
+      <div class="text-subtitle2 text-secondary">Fecha</div>
+      <div class="text-body1 text-dark">
+        {{ formatDate(selectedStep.clickedAt) }}
+      </div>
+    </div>
+  </div>
+</q-card-section>
 
         <q-card-actions
           align="right"
@@ -849,7 +830,6 @@ const flowColumns = [
     align: 'center'
   }
 ]
-
 const stepColumns = [
   {
     name: 'index',
@@ -862,6 +842,12 @@ const stepColumns = [
     label: 'Descripción',
     field: 'nodeId',
     align: 'left'
+  },
+  {
+    name: 'eventType',
+    label: 'Tipo',
+    field: 'eventType',
+    align: 'center'
   },
   {
     name: 'source',
@@ -882,7 +868,6 @@ const stepColumns = [
     align: 'center'
   }
 ]
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -904,6 +889,46 @@ const isFlowCompleted = (flow: any): boolean => {
 const getFlowStatus = (flow: any): string => {
   return normalizeStatus(flow?.status)
 }
+
+// ============================================================
+// 🆕 HELPERS DE TIPO DE EVENTO
+// ============================================================
+function getEventTypeColor(eventType: string): string {
+  const colors: Record<string, string> = {
+    click: 'primary',
+    navigation: 'info',
+  }
+  return colors[eventType] || 'grey'
+}
+
+function getEventTypeLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    click: '🖱️ Click',
+    navigation: '📱 Navegación',
+  }
+  return labels[eventType] || eventType
+}
+
+function getChipColor(click: any): string {
+  if (click.source !== 'figma') return 'primary'
+
+  const colors: Record<string, string> = {
+    click: 'primary',
+    navigation: 'info',
+  }
+  return colors[click.eventType] || 'info'
+}
+
+function getEventIcon(eventType?: string): string {
+  const icons: Record<string, string> = {
+    click: 'touch_app',
+    navigation: 'swap_horiz',
+  }
+  return icons[eventType || 'click'] || 'circle'
+}
+
+
+
 const truncateText = (
   text: string,
   maxLength: number

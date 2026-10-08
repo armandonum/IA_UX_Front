@@ -139,6 +139,12 @@ const allNavItems: NavItem[] = [
 
     
   { to: '/docente', icon: 'school', label: 'Mi Clase', roles: ['Docente', 'Administrador'] },
+  {
+    to: '/docente/gestion',
+    icon: 'dashboard_customize',
+    label: 'Panel de Gestión',
+    roles: ['Docente', 'Administrador'],
+  },
 
   { to: '/estudiante', icon: 'menu_book', label: 'EXPERIMENTOS FORMALES ', roles: ['Estudiante', 'Administrador'] },
 

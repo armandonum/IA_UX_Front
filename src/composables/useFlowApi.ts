@@ -15,9 +15,12 @@ export interface FlowClick {
   clickId: string
   flowId: string
   orderIndex: number
-  nodeId: string
-  presentedNodeId: string | null
+  nodeId: string                     // Nombre legible (ej: "Click en Button (INSTANCE)")
+  presentedNodeId: string | null     // ID real del nodo (ej: "1:72")
   clickedAt: string
+  source?: 'figma' | 'manual'
+  eventType?: 'click' | 'navigation'   // Solo click y navigation
+  metadata?: Record<string, any>
 }
 
 export const useFlowApi = () => {
@@ -57,15 +60,18 @@ export const useFlowApi = () => {
   // ============================================================
   // FLOW CLICKS
   // ============================================================
-  const createFlowClick = async (payload: {
-    flowId: string
-    orderIndex: number
-    nodeId: string
-    presentedNodeId?: string
-  }) => {
-    const { data } = await api.post('/flow-clicks', payload)
-    return data
-  }
+const createFlowClick = async (payload: {
+  flowId: string
+  orderIndex: number
+  nodeId: string
+  presentedNodeId?: string
+}) => {
+  const { data } = await api.post('/flow-clicks', payload)
+  return data
+}
+
+// 🆕 Alias semántico
+const createFlowStep = createFlowClick
 
   const getFlowClicks = async (flowId: string) => {
     const { data } = await api.get(`/flow-clicks/flow/${flowId}`)
@@ -88,19 +94,20 @@ export const useFlowApi = () => {
     }
   }
 
-  return {
-    // Flows
-    createFlow,
-    getFlows,
-    getFlowById,
-    updateFlow,
-    finishFlow,
-    deleteFlow,
-    // Flow Clicks
-    createFlowClick,
-    getFlowClicks,
-    updateFlowClick,
-    deleteFlowClick,
-    deleteAllFlowClicks,
-  }
+return {
+  // Flows
+  createFlow,
+  getFlows,
+  getFlowById,
+  updateFlow,
+  finishFlow,
+  deleteFlow,
+  // Flow Clicks
+  createFlowClick,
+  createFlowStep,      
+  getFlowClicks,
+  updateFlowClick,
+  deleteFlowClick,
+  deleteAllFlowClicks,
+}
 }

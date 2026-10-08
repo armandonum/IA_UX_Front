@@ -1,225 +1,320 @@
-<!-- components/expert/cognitive/CognitiveAssignModal.vue -->
+<!-- components/experto/cognitive/CognitiveAssignModal.vue -->
 <template>
-  <div
-    class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8"
-  >
-
-    <!-- Header -->
-    <div class="mb-8">
-
-      <div class="flex items-center gap-4">
-
-        <div
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50"
-        >
-          <q-icon
-            name="psychology"
-            size="28px"
-            color="primary"
-          />
+  <div class="q-pa-lg">
+    <!-- ============================================================ -->
+    <!-- HEADER                                                        -->
+    <!-- ============================================================ -->
+    <div class="row items-center justify-between q-mb-lg">
+      <div>
+        <div class="text-h5 text-weight-bold">
+          🧠 Evaluaciones Cognitivas Asignadas
         </div>
-
-        <div>
-          <h2 class="text-2xl font-bold text-slate-900">
-            Evaluaciones asignadas
-          </h2>
-
-          <p class="mt-1 text-sm text-slate-500">
-            Selecciona una evaluación cognitiva para comenzar.
-          </p>
+        <div class="text-body2 text-grey-7 q-mt-xs">
+          Selecciona una evaluación para comenzar el recorrido cognitivo
         </div>
-
       </div>
 
+      <q-btn
+        flat
+        color="primary"
+        icon="refresh"
+        label="Actualizar"
+        :loading="loading"
+        @click="$emit('reload')"
+      />
     </div>
 
-    <!-- Loading -->
-    <div
-      v-if="loading"
-      class="flex min-h-[280px] items-center justify-center"
-    >
-      <div class="flex flex-col items-center gap-3">
+    <!-- ============================================================ -->
+    <!-- CLIENT ID                                                     -->
+    <!-- ============================================================ -->
+    <ClientIdInput
+      :model-value="figmaSession.clientId"
+      @update:model-value="figmaSession.setClientId"
+    />
 
-        <q-spinner
-          color="primary"
-          size="42px"
-        />
-
-        <span class="text-sm text-slate-500">
-          Cargando evaluaciones...
-        </span>
-
+    <!-- ============================================================ -->
+    <!-- LOADING                                                       -->
+    <!-- ============================================================ -->
+    <div v-if="loading" class="column items-center q-py-xl">
+      <q-spinner color="primary" size="48px" />
+      <div class="text-caption text-grey-7 q-mt-sm">
+        Cargando evaluaciones...
       </div>
     </div>
 
-    <!-- Empty -->
-    <div
-      v-else-if="evaluations.length === 0"
-      class="rounded-2xl border border-slate-200 px-6 py-12 text-center"
+    <!-- ============================================================ -->
+    <!-- EMPTY                                                         -->
+    <!-- ============================================================ -->
+    <q-card
+      v-else-if="!evaluations.length"
+      flat
+      bordered
+      class="text-center q-pa-xl"
     >
+      <q-icon name="assignment" size="64px" color="grey-5" />
+      <div class="text-h6 text-grey-7 q-mt-md">
+        No tienes evaluaciones asignadas
+      </div>
+      <div class="text-caption text-grey-6 q-mt-xs">
+        Contacta al coordinador para que te asigne una evaluación cognitiva
+      </div>
+    </q-card>
 
+    <!-- ============================================================ -->
+    <!-- GRID DE EVALUACIONES                                          -->
+    <!-- ============================================================ -->
+    <div v-else class="row q-col-gutter-md">
       <div
-        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50"
-      >
-        <q-icon
-          name="assignment"
-          size="32px"
-          color="grey-7"
-        />
-      </div>
-
-      <h3 class="mt-5 text-lg font-semibold text-slate-900">
-        No hay evaluaciones asignadas
-      </h3>
-
-      <p
-        class="mx-auto mt-2 max-w-md text-sm text-slate-500"
-      >
-        Actualmente no tienes evaluaciones cognitivas asignadas.
-        Contacta al coordinador si necesitas una evaluación.
-      </p>
-
-    </div>
-
-    <!-- Evaluations -->
-    <div
-      v-else
-      class="grid grid-cols-1 gap-4 md:grid-cols-2"
-    >
-
-      <q-card
         v-for="evaluation in evaluations"
         :key="evaluation.cognitiveEvaluationId"
-        flat
-        class="group rounded-2xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+        class="col-12 col-sm-6 col-md-4 col-lg-3"
       >
-
-        <q-card-section class="p-5">
-
-          <!-- Top -->
-          <div
-            class="flex items-start justify-between gap-4"
-          >
-
-            <!-- Icon -->
-            <div
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50"
+        <q-card class="evaluation-card full-height column">
+          <!-- ==================================================== -->
+          <!-- THUMBNAIL                                             -->
+          <!-- ==================================================== -->
+          <div class="thumbnail-container">
+            <q-img
+              v-if="getProjectThumbnail(evaluation.projectId)"
+              :src="getProjectThumbnail(evaluation.projectId)!"
+              height="160px"
+              fit="cover"
+              class="thumbnail-img"
             >
-              <q-icon
-                name="assignment"
-                size="24px"
-                color="primary"
-              />
+              <template #error>
+                <div class="absolute-full flex flex-center bg-grey-3">
+                  <q-icon name="image_not_supported" size="32px" color="grey-6" />
+                </div>
+              </template>
+            </q-img>
+
+            <div
+              v-else
+              class="absolute-full flex flex-center bg-grey-2 text-grey-6"
+            >
+              <div class="text-center">
+                <q-icon name="palette" size="48px" />
+                <div class="text-caption q-mt-xs">Sin previsualización</div>
+              </div>
             </div>
 
-            <!-- Status -->
+            <!-- Badge de URL disponible -->
             <q-badge
-              v-if="evaluation.status === 'in_progress'"
-              color="warning"
-              outline
-              rounded
+              v-if="hasPublicUrl(evaluation.projectId)"
+              color="positive"
+              text-color="white"
+              class="url-badge"
             >
-              <q-icon
-                name="schedule"
-                size="14px"
-                class="mr-1"
-              />
-
-              En progreso
+              <q-icon name="link" size="12px" class="q-mr-xs" />
+              Prototipo listo
             </q-badge>
 
             <q-badge
               v-else
-              color="info"
-              outline
-              rounded
+              color="warning"
+              text-color="white"
+              class="url-badge"
             >
-              <q-icon
-                name="pending_actions"
-                size="14px"
-                class="mr-1"
-              />
-
-              Pendiente
+              <q-icon name="link_off" size="12px" class="q-mr-xs" />
+              Sin URL pública
             </q-badge>
-
           </div>
 
-          <!-- Content -->
-          <div class="mt-5">
-
-            <h3
-              class="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary"
-            >
+          <!-- ==================================================== -->
+          <!-- INFO                                                  -->
+          <!-- ==================================================== -->
+          <q-card-section class="q-pb-sm">
+            <div class="text-subtitle1 text-weight-bold ellipsis-2 q-mb-xs">
               {{ evaluation.name }}
-            </h3>
-
-            <p
-              class="mt-2 min-h-[40px] text-sm leading-5 text-slate-600"
-            >
-              {{
-                evaluation.description ||
-                'Evaluación cognitiva asignada para su realización.'
-              }}
-            </p>
-
-          </div>
-
-          <!-- Metadata -->
-          <div
-            class="mt-5 flex items-center border-t border-slate-200 pt-4"
-          >
-
-            <div
-              class="flex items-center gap-2 text-sm text-slate-500"
-            >
-
-              <q-icon
-                name="task_alt"
-                size="18px"
-                color="primary"
-              />
-
-              <span>
-                {{ evaluation.totalTasks || 0 }}
-                {{
-                  evaluation.totalTasks === 1
-                    ? 'tarea'
-                    : 'tareas'
-                }}
-              </span>
-
             </div>
 
+            <div
+              v-if="evaluation.description"
+              class="text-caption text-grey-7 ellipsis-2"
+              style="min-height: 36px;"
+            >
+              {{ evaluation.description }}
+            </div>
+          </q-card-section>
+
+          <q-card-section class="q-pt-none q-pb-sm">
+            <!-- Info del proyecto -->
+            <div class="row items-center q-gutter-xs text-caption text-grey-6">
+              <q-icon name="folder" size="14px" />
+              <span class="ellipsis" style="max-width: 200px;">
+                {{ getProjectName(evaluation.projectId) }}
+              </span>
+            </div>
+
+            <div class="row items-center q-gutter-md text-caption text-grey-6 q-mt-xs">
+              <div class="row items-center">
+                <q-icon name="task_alt" size="14px" class="q-mr-xs" />
+                {{ evaluation.totalTasks || 0 }} tareas
+              </div>
+              <div class="row items-center">
+                <q-icon name="timer" size="14px" class="q-mr-xs" />
+                {{ evaluation.maxDurationMinutes || 20 }} min
+              </div>
+            </div>
+          </q-card-section>
+
+          <!-- ==================================================== -->
+          <!-- AVISO URL PÚBLICA                                     -->
+          <!-- ==================================================== -->
+          <div
+            v-if="hasPublicUrl(evaluation.projectId)"
+            class="public-url-notice q-px-sm q-py-xs"
+            @click.stop="abrirPrototipo(evaluation.projectId)"
+          >
+            <q-icon name="info" size="14px" class="q-mr-xs" />
+            <span class="text-caption">
+              Abre el
+              <strong class="text-primary">prototipo</strong>
+              antes de iniciar
+            </span>
+            <q-space />
+            <q-icon name="open_in_new" size="14px" class="text-primary" />
           </div>
 
-          <!-- Action -->
-          <q-btn
-            unelevated
-            color="primary"
-            icon="play_arrow"
-            label="Comenzar evaluación"
-            no-caps
-            class="mt-5 w-full rounded-lg"
-            @click="$emit('select', evaluation)"
-          />
+          <div
+            v-else
+            class="bg-warning-1 q-px-sm q-py-xs"
+          >
+            <q-icon name="warning" size="14px" class="q-mr-xs text-warning" />
+            <span class="text-caption text-warning-9">
+              Este proyecto no tiene URL pública configurada
+            </span>
+          </div>
 
-        </q-card-section>
+          <q-space />
 
-      </q-card>
+          <!-- ==================================================== -->
+          <!-- ACCIONES                                              -->
+          <!-- ==================================================== -->
+          <q-separator />
 
+          <q-card-actions class="q-pa-sm">
+            <q-btn
+              unelevated
+              color="primary"
+              icon="play_arrow"
+              label="Comenzar evaluación"
+              size="sm"
+              class="col"
+              :disable="!hasClientId"
+              @click="$emit('select', evaluation)"
+            />
+          </q-card-actions>
+        </q-card>
+      </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- AVISO SI NO HAY CLIENT ID                                     -->
+    <!-- ============================================================ -->
+    <q-banner
+      v-if="!hasClientId && evaluations.length"
+      rounded
+      class="bg-orange-1 text-orange-10 q-mt-md"
+    >
+      <template #avatar>
+        <q-icon name="info" />
+      </template>
+      Ingresa tu <strong>Client ID de Figma</strong> para poder cargar los prototipos.
+    </q-banner>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed, onMounted, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
+import { useFigmaSessionStore } from '@/stores/figmaSession.store'
+import { useProjectInfo } from '@/composables/docente/useProjectInfo'
+import ClientIdInput from '@/components/estudiante/figma/ClientIdInput.vue'
+
+const props = defineProps<{
   evaluations: any[]
   loading?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'select', evaluation: any): void
+  (e: 'reload'): void
 }>()
+
+const $q = useQuasar()
+const figmaSession = useFigmaSessionStore()
+
+const {
+  loadProjects,
+  getProject,
+  getPublicUrl,
+} = useProjectInfo()
+
+// ============================================================
+// COMPUTED
+// ============================================================
+const hasClientId = computed(() => !!figmaSession.clientId?.trim())
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getProjectThumbnail(projectId: string): string | null {
+  return getProject(projectId)?.thumbnailUrl || null
+}
+
+function getProjectName(projectId: string): string {
+  return getProject(projectId)?.projectName || 'Proyecto'
+}
+
+function hasPublicUrl(projectId: string): boolean {
+  return !!getPublicUrl(projectId)
+}
+
+function abrirPrototipo(projectId: string) {
+  const url = getPublicUrl(projectId)
+  if (!url) {
+    $q.notify({
+      type: 'warning',
+      message: 'Este proyecto no tiene URL pública configurada',
+    })
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// ============================================================
+// LIFECYCLE
+// ============================================================
+// ============================================================
+// CARGAR PROYECTOS CUANDO LLEGUEN LAS EVALUACIONES
+// ============================================================
+/**
+ * Carga los datos de los proyectos (thumbnail, URL pública, etc.)
+ * para las evaluaciones recibidas.
+ */
+async function loadProjectsForEvaluations() {
+  const ids = props.evaluations
+    .map((e) => e.projectId)
+    .filter(Boolean)
+
+  if (ids.length === 0) return
+
+  console.log('📥 Cargando proyectos para evaluaciones:', ids.length)
+  await loadProjects(ids)
+  console.log('✅ Proyectos cargados:', ids.length)
+}
+
+// 🔥 Watch que observa cambios en las evaluaciones
+// - immediate: true → se ejecuta al montar Y cada vez que cambia
+// - deep: true → observa cambios dentro del array (por si reemplazan elementos)
+watch(
+  () => props.evaluations,
+  async (newVal) => {
+    if (newVal && newVal.length > 0) {
+      await loadProjectsForEvaluations()
+    }
+  },
+  { immediate: true, deep: true },
+)
 </script>

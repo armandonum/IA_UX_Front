@@ -92,11 +92,43 @@ const routes: RouteRecordRaw[] = [
 
       // ── Docente ───────────────────────────────────────────────────────────
       {
+  path: '/docente/gestion/heuristics/evaluations/:evaluationId',
+  name: 'docente-heuristic-evaluation-detail',
+  component: () =>
+    import('@/views/roles/docente/heuristics/EvaluationDetailView.vue'),
+  meta: {
+    requiresAuth: true,
+    roles: ['Docente', 'Administrador'],
+  },
+},
+
+      {
+  path: '/docente/gestion/heuristics/frameworks/:frameworkId',
+  name: 'docente-heuristic-framework-detail',
+  component: () =>
+    import('@/views/roles/docente/heuristics/FrameworkDetailView.vue'),
+  meta: {
+    requiresAuth: true,
+    roles: ['Docente', 'Administrador'],
+  },
+},
+{
+  path: '/docente/gestion',
+  name: 'docente-gestion',
+  component: () => import('@/views/roles/docente/DocenteManagementView.vue'),
+  meta: {
+    requiresAuth: true,
+    roles: ['Docente', 'Administrador'],
+  },
+},
+
+      {
         path: 'docente',
         name: 'docente',
         component: () => import('@/views/roles/DocenteView.vue'),
         meta: { roles: ['Docente', 'Administrador'] as RoleName[] },
       },
+      
 
       // ── Estudiante ────────────────────────────────────────────────────────
       {

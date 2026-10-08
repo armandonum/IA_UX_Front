@@ -1,231 +1,319 @@
+<!-- components/experto/cognitive/CognitiveQuestions.vue -->
 <template>
-  <div class="column full-height q-pa-md">
-    <div class="col full-height overflow-y-auto">
-      <!-- Encabezado -->
-      <div class="q-mb-lg">
-        <div class="text-caption text-grey-6">
-          Paso {{ stepIndex + 1 }} de {{ totalSteps }}
-        </div>
-        <h4 class="text-h6 text-white q-mb-xs">
-          {{ currentStep?.nodeId || 'Sin pasos definidos' }}
-        </h4>
-        <div v-if="currentStep?.presentedNodeId" class="text-caption text-grey-5">
-          <q-icon name="mdi-code" size="14px" />
-          ID: {{ currentStep.presentedNodeId }}
-        </div>
-        <div v-if="flowClicks.length === 0" class="text-body2 text-warning q-mt-md">
-          <q-icon name="mdi-alert" size="16px" class="q-mr-xs" />
-          Esta tarea no tiene un flujo ideal definido. Responde según tu criterio.
-        </div>
+  <div class="questions-panel column full-height">
+    <!-- ============================================================ -->
+    <!-- HEADER FIJO                                                   -->
+    <!-- ============================================================ -->
+    <div class="questions-header q-pa-md">
+      <div class="row items-center q-gutter-xs q-mb-xs">
+        <q-chip
+          color="primary"
+          text-color="white"
+          dense
+          size="sm"
+        >
+          Paso {{ stepIndex + 1 }} / {{ totalSteps }}
+        </q-chip>
+        <q-badge
+          v-if="isCompleted"
+          color="positive"
+          text-color="white"
+        >
+          <q-icon name="check" size="12px" class="q-mr-xs" />
+          Completado
+        </q-badge>
       </div>
 
-      <!-- Estado del paso -->
-      <div v-if="isCompleted" class="bg-positive/20 border border-positive/30 rounded-borders q-pa-md q-mb-lg">
-        <div class="row items-center gap-2 text-positive">
-          <q-icon name="mdi-check-circle" size="24px" />
-          <span class="text-weight-bold">¡Paso {{ stepIndex + 1 }} completado!</span>
-        </div>
-        <p class="text-body2 text-grey-5 q-mt-sm">
-          {{ isLastStep ? 'Has completado todos los pasos de esta tarea.' : 'Continúa con el siguiente paso.' }}
-        </p>
+      <div class="text-subtitle2 text-weight-bold q-mt-xs">
+        {{ currentStep?.nodeId || 'Sin pasos definidos' }}
       </div>
 
-      <!-- Preguntas del recorrido cognitivo -->
-      <div v-if="!isCompleted" class="q-gutter-y-md">
-        <!-- Pregunta 1 -->
-        <div class="bg-secondary rounded-borders q-pa-md">
-          <div class="text-body2 text-weight-medium text-grey-4 q-mb-sm">
-            1. ¿El usuario intentará lograr el resultado correcto?
-          </div>
-          <div class="row q-gutter-xs">
-            <q-btn
-              v-for="option in options"
-              :key="option.value"
-              :label="option.label"
-              :color="response.q1 === option.value ? 'warning' : 'grey-7'"
-              size="sm"
-              no-caps
-              @click="response.q1 = option.value"
-            />
-          </div>
-          <q-input
-            v-model="response.q1Reasoning"
-            label="Razonamiento"
-            dense
-            dark
-            color="white"
-            filled
-            class="q-mt-sm"
-            placeholder="Explica tu razonamiento..."
-          />
-        </div>
-
-        <!-- Pregunta 2 -->
-        <div class="bg-secondary rounded-borders q-pa-md">
-          <div class="text-body2 text-weight-medium text-grey-4 q-mb-sm">
-            2. ¿El usuario notará que la acción correcta está disponible?
-          </div>
-          <div class="row q-gutter-xs">
-            <q-btn
-              v-for="option in options"
-              :key="option.value"
-              :label="option.label"
-              :color="response.q2 === option.value ? 'warning' : 'grey-7'"
-              size="sm"
-              no-caps
-              @click="response.q2 = option.value"
-            />
-          </div>
-          <q-input
-            v-model="response.q2Reasoning"
-            label="Razonamiento"
-            dense
-            dark
-            color="white"
-            filled
-            class="q-mt-sm"
-            placeholder="Explica tu razonamiento..."
-          />
-        </div>
-
-        <!-- Pregunta 3 -->
-        <div class="bg-secondary rounded-borders q-pa-md">
-          <div class="text-body2 text-weight-medium text-grey-4 q-mb-sm">
-            3. ¿El usuario asociará la acción correcta con el resultado deseado?
-          </div>
-          <div class="row q-gutter-xs">
-            <q-btn
-              v-for="option in options"
-              :key="option.value"
-              :label="option.label"
-              :color="response.q3 === option.value ? 'warning' : 'grey-7'"
-              size="sm"
-              no-caps
-              @click="response.q3 = option.value"
-            />
-          </div>
-          <q-input
-            v-model="response.q3Reasoning"
-            label="Razonamiento"
-            dense
-            dark
-            color="white"
-            filled
-            class="q-mt-sm"
-            placeholder="Explica tu razonamiento..."
-          />
-        </div>
-
-        <!-- Pregunta 4 -->
-        <div class="bg-secondary rounded-borders q-pa-md">
-          <div class="text-body2 text-weight-medium text-grey-4 q-mb-sm">
-            4. ¿El usuario verá que está progresando?
-          </div>
-          <div class="row q-gutter-xs">
-            <q-btn
-              v-for="option in options"
-              :key="option.value"
-              :label="option.label"
-              :color="response.q4 === option.value ? 'warning' : 'grey-7'"
-              size="sm"
-              no-caps
-              @click="response.q4 = option.value"
-            />
-          </div>
-          <q-input
-            v-model="response.q4Reasoning"
-            label="Razonamiento"
-            dense
-            dark
-            color="white"
-            filled
-            class="q-mt-sm"
-            placeholder="Explica tu razonamiento..."
-          />
-        </div>
-
-        <!-- Problemas y sugerencias -->
-        <div class="bg-slate-100 text-slate-100 rounded-borders q-pa-md">
-          <q-input
-            v-model="response.problemIdentified"
-            label="Problema identificado"
-            dense
-            filled
-            type="textarea"
-            rows="2"
-            placeholder="¿Qué problema de usabilidad identificaste en este paso?"
-          />
-          <q-input
-            v-model="response.designSuggestion"
-            label="Sugerencia de diseño"
-            dense
-            filled
-            type="textarea"
-            rows="2"
-            class="q-mt-sm"
-            placeholder="¿Qué sugerencia de diseño tienes para mejorar este paso?"
-          />
-          <q-input
-            v-model="response.otherComments"
-            label="Otros comentarios"
-            dense
-            filled
-            type="textarea"
-            rows="2"
-            class="q-mt-sm"
-            placeholder="Comentarios adicionales..."
-          />
-        </div>
-      </div>
-
-      <!-- Resumen cuando está completo -->
-      <div v-if="isCompleted" class="bg-secondary rounded-borders q-pa-md">
-        <div class="q-gutter-y-sm">
-          <div class="row justify-between text-body2">
-            <span class="text-grey-5">Problemas identificados</span>
-            <span class="text-grey-3">{{ response.problemIdentified || 'Ninguno' }}</span>
-          </div>
-          <div class="row justify-between text-body2">
-            <span class="text-grey-5">Sugerencias</span>
-            <span class="text-grey-3">{{ response.designSuggestion || 'Ninguna' }}</span>
-          </div>
-        </div>
+      <div
+        v-if="currentStep?.presentedNodeId"
+        class="text-caption text-grey-6 q-mt-xs font-mono"
+      >
+        ID: {{ currentStep.presentedNodeId }}
       </div>
     </div>
 
-    <!-- Botones de acción -->
-    <div class="q-mt-md row q-gutter-sm border-top border-grey-7 q-pt-md">
+    <!-- ============================================================ -->
+    <!-- AVISO SI NO HAY FLUJO                                         -->
+    <!-- ============================================================ -->
+    <q-banner
+      v-if="flowClicks.length === 0"
+      dense
+      rounded
+      class="bg-orange-1 text-orange-10 q-mx-md q-mb-md"
+    >
+      <template #avatar>
+        <q-icon name="warning" />
+      </template>
+      <div class="text-caption">
+        Esta tarea no tiene un flujo ideal definido. Responde según tu criterio.
+      </div>
+    </q-banner>
+
+    <!-- ============================================================ -->
+    <!-- SCROLL DE PREGUNTAS                                           -->
+    <!-- ============================================================ -->
+    <div class="col scroll q-px-md q-pb-md">
+      <!-- Estado: completado -->
+      <q-card
+        v-if="isCompleted"
+        flat
+        class="bg-green-1 q-mb-md"
+      >
+        <q-card-section class="q-pa-md">
+          <div class="row items-center q-gutter-sm">
+            <q-icon name="check_circle" size="32px" color="positive" />
+            <div>
+              <div class="text-subtitle2 text-weight-bold text-positive">
+                ¡Paso {{ stepIndex + 1 }} completado!
+              </div>
+              <div class="text-caption text-grey-7 q-mt-xs">
+                {{ isLastStep
+                  ? 'Has completado todos los pasos.'
+                  : 'Continúa con el siguiente paso.' }}
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Preguntas del recorrido cognitivo -->
+      <template v-else>
+        <!-- Pregunta 1 -->
+        <q-card flat bordered class="q-mb-sm question-card">
+          <q-card-section class="q-pa-md">
+            <div class="text-body2 text-weight-medium text-grey-8 q-mb-sm">
+              <span class="text-primary text-weight-bold">1.</span>
+              ¿El usuario intentará lograr el resultado correcto?
+            </div>
+
+            <div class="row q-gutter-xs q-mb-sm">
+              <q-btn
+                v-for="option in options"
+                :key="option.value"
+                :label="option.label"
+                :color="response.q1 === option.value ? 'primary' : 'grey-5'"
+                :outline="response.q1 !== option.value"
+                :unelevated="response.q1 === option.value"
+                size="sm"
+                no-caps
+                class="q-px-md"
+                @click="response.q1 = option.value"
+              />
+            </div>
+
+            <q-input
+              v-model="response.q1Reasoning"
+              dense
+              outlined
+              placeholder="Razonamiento..."
+              :rows="2"
+              type="textarea"
+            />
+          </q-card-section>
+        </q-card>
+
+        <!-- Pregunta 2 -->
+        <q-card flat bordered class="q-mb-sm question-card">
+          <q-card-section class="q-pa-md">
+            <div class="text-body2 text-weight-medium text-grey-8 q-mb-sm">
+              <span class="text-primary text-weight-bold">2.</span>
+              ¿El usuario notará que la acción correcta está disponible?
+            </div>
+
+            <div class="row q-gutter-xs q-mb-sm">
+              <q-btn
+                v-for="option in options"
+                :key="option.value"
+                :label="option.label"
+                :color="response.q2 === option.value ? 'primary' : 'grey-5'"
+                :outline="response.q2 !== option.value"
+                :unelevated="response.q2 === option.value"
+                size="sm"
+                no-caps
+                class="q-px-md"
+                @click="response.q2 = option.value"
+              />
+            </div>
+
+            <q-input
+              v-model="response.q2Reasoning"
+              dense
+              outlined
+              placeholder="Razonamiento..."
+              :rows="2"
+              type="textarea"
+            />
+          </q-card-section>
+        </q-card>
+
+        <!-- Pregunta 3 -->
+        <q-card flat bordered class="q-mb-sm question-card">
+          <q-card-section class="q-pa-md">
+            <div class="text-body2 text-weight-medium text-grey-8 q-mb-sm">
+              <span class="text-primary text-weight-bold">3.</span>
+              ¿El usuario asociará la acción con el resultado deseado?
+            </div>
+
+            <div class="row q-gutter-xs q-mb-sm">
+              <q-btn
+                v-for="option in options"
+                :key="option.value"
+                :label="option.label"
+                :color="response.q3 === option.value ? 'primary' : 'grey-5'"
+                :outline="response.q3 !== option.value"
+                :unelevated="response.q3 === option.value"
+                size="sm"
+                no-caps
+                class="q-px-md"
+                @click="response.q3 = option.value"
+              />
+            </div>
+
+            <q-input
+              v-model="response.q3Reasoning"
+              dense
+              outlined
+              placeholder="Razonamiento..."
+              :rows="2"
+              type="textarea"
+            />
+          </q-card-section>
+        </q-card>
+
+        <!-- Pregunta 4 -->
+        <q-card flat bordered class="q-mb-md question-card">
+          <q-card-section class="q-pa-md">
+            <div class="text-body2 text-weight-medium text-grey-8 q-mb-sm">
+              <span class="text-primary text-weight-bold">4.</span>
+              ¿El usuario verá que está progresando?
+            </div>
+
+            <div class="row q-gutter-xs q-mb-sm">
+              <q-btn
+                v-for="option in options"
+                :key="option.value"
+                :label="option.label"
+                :color="response.q4 === option.value ? 'primary' : 'grey-5'"
+                :outline="response.q4 !== option.value"
+                :unelevated="response.q4 === option.value"
+                size="sm"
+                no-caps
+                class="q-px-md"
+                @click="response.q4 = option.value"
+              />
+            </div>
+
+            <q-input
+              v-model="response.q4Reasoning"
+              dense
+              outlined
+              placeholder="Razonamiento..."
+              :rows="2"
+              type="textarea"
+            />
+          </q-card-section>
+        </q-card>
+
+        <!-- Problemas y sugerencias -->
+        <q-expansion-item
+          icon="flag"
+          label="Problemas y sugerencias"
+          caption="Opcional"
+          header-class="bg-grey-2 text-grey-8 rounded-borders"
+          expand-icon-class="text-primary"
+          class="q-mb-sm"
+        >
+          <q-card flat>
+            <q-card-section class="q-gutter-sm">
+              <q-input
+                v-model="response.problemIdentified"
+                dense
+                outlined
+                type="textarea"
+                :rows="2"
+                label="Problema identificado"
+                placeholder="¿Qué problema de usabilidad identificaste?"
+              />
+
+              <q-input
+                v-model="response.designSuggestion"
+                dense
+                outlined
+                type="textarea"
+                :rows="2"
+                label="Sugerencia de diseño"
+                placeholder="¿Cómo se podría mejorar este paso?"
+              />
+
+              <q-input
+                v-model="response.otherComments"
+                dense
+                outlined
+                type="textarea"
+                :rows="2"
+                label="Otros comentarios"
+              />
+            </q-card-section>
+          </q-card>
+        </q-expansion-item>
+      </template>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- FOOTER FIJO CON BOTONES                                       -->
+    <!-- ============================================================ -->
+    <div class="questions-footer q-pa-md">
       <template v-if="!isCompleted">
-        <q-btn
-          color="primary"
-          label="Guardar Respuesta"
-          class="col"
-          :disable="!isResponseValid"
-          :loading="saving"
-          @click="saveResponse"
-        />
-        <q-btn
-          v-if="!isLastStep"
-          flat
-          color="grey"
-          label="Saltar"
-          @click="skipStep"
-        />
+        <div class="row q-gutter-sm">
+          <q-btn
+            unelevated
+            color="primary"
+            icon="save"
+            label="Guardar respuesta"
+            class="col"
+            no-caps
+            :disable="!isResponseValid"
+            :loading="saving"
+            @click="saveResponse"
+          />
+
+          <q-btn
+            v-if="!isLastStep"
+            flat
+            color="grey-7"
+            icon="skip_next"
+            label="Saltar"
+            no-caps
+            @click="skipStep"
+          />
+        </div>
       </template>
 
       <template v-else>
         <q-btn
           v-if="isLastStep"
+          unelevated
           color="positive"
-          label="Completar Tarea"
-          class="col"
+          icon="check_circle"
+          label="Completar tarea"
+          class="full-width"
+          no-caps
+          size="md"
           @click="$emit('complete')"
         />
         <q-btn
           v-else
+          unelevated
           color="warning"
-          label="Siguiente Paso"
-          class="col"
+          icon="arrow_forward"
+          label="Siguiente paso"
+          class="full-width"
+          no-caps
+          size="md"
           @click="$emit('next-step')"
         />
       </template>
@@ -284,9 +372,9 @@ const isResponseValid = computed(() => {
   return response.value.q1 && response.value.q2 && response.value.q3 && response.value.q4
 })
 
-const saveResponse = () => {
+function saveResponse() {
   if (!isResponseValid.value) return
-  
+
   saving.value = true
   try {
     emit('save', {
@@ -301,32 +389,73 @@ const saveResponse = () => {
   }
 }
 
-const skipStep = () => {
+function skipStep() {
   emit('skip')
 }
 
-// Resetear respuesta cuando cambia el paso
-watch(() => props.currentStepIndex, () => {
-  response.value = {
-    q1: null,
-    q1Reasoning: '',
-    q2: null,
-    q2Reasoning: '',
-    q3: null,
-    q3Reasoning: '',
-    q4: null,
-    q4Reasoning: '',
-    problemIdentified: '',
-    designSuggestion: '',
-    otherComments: '',
-    stepIndex: props.currentStepIndex,
-    flowClickId: currentStep.value?.clickId || null,
-  }
-}, { immediate: true })
-
-// Actualizar stepIndex cuando cambia
-watch(() => props.currentStepIndex, (newVal) => {
-  response.value.stepIndex = newVal
-  response.value.flowClickId = currentStep.value?.clickId || null
-})
+watch(
+  () => props.currentStepIndex,
+  (newIndex) => {
+    response.value = {
+      q1: null,
+      q1Reasoning: '',
+      q2: null,
+      q2Reasoning: '',
+      q3: null,
+      q3Reasoning: '',
+      q4: null,
+      q4Reasoning: '',
+      problemIdentified: '',
+      designSuggestion: '',
+      otherComments: '',
+      stepIndex: newIndex,
+      flowClickId: currentStep.value?.clickId || null,
+    }
+  },
+  { immediate: true },
+)
 </script>
+
+<style scoped>
+.questions-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.questions-header {
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.questions-footer {
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.question-card {
+  background: white;
+  transition: border-color 0.15s;
+}
+
+.question-card:hover {
+  border-color: #94a3b8;
+}
+
+.bg-green-1 {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.font-mono {
+  font-family: 'Courier New', monospace;
+}
+</style>

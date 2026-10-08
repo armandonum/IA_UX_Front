@@ -60,7 +60,7 @@
       <div class="text-white text-sm">
         <div class="font-semibold">{{ flow.name }}</div>
         <div class="text-xs text-slate-400">
-          {{ flowClicks.length }} pasos grabados
+          {{ flowClicks.length }} pasos grabados as
         </div>
       </div>
     </div>
@@ -123,9 +123,9 @@
     </div>
 
     <!-- Lista de pasos grabados -->
-    <div v-if="flowClicks.length > 0" class="mt-4">
+    <div v-if="flowClicks.length > 0" class="mt-4 ">
       <div class="flex justify-between items-center q-mb-2">
-        <div class="text-sm font-semibold text-slate-300">Pasos Grabados ({{ flowClicks.length }})</div>
+        <div class="text-sm font-semibold text-slate-300">Pasos Grabados as ({{ flowClicks.length }})</div>
         <div class="text-sm text-slate-500">{{ flowClicks.length }} pasos</div>
       </div>
       <q-list bordered separator class="rounded-lg bg-slate-800 border-slate-700 max-h-40 overflow-auto">
@@ -176,6 +176,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { useFlowApi } from '@/composables/useFlowApi'
+import { useFigmaNodes } from '@/composables/useFigmaNodes'
 
 const props = defineProps<{
   fileKey: string
@@ -194,6 +195,16 @@ const emit = defineEmits<{
 
 const $q = useQuasar()
 const flowApi = useFlowApi()
+
+// 🆕 Composable de nodos de Figma
+const {
+  nodeCache,
+  loading: loadingNodes,
+  loadFigmaNodes,
+  getNodeName,
+  getNodeType,
+  getNodeInfo,
+} = useFigmaNodes()
 
 // ============================================================
 // STATE
@@ -309,73 +320,182 @@ const addManualStep = async () => {
 }
 
 // ============================================================
+// 🆕 ENRIQUECER EVENTOS CON NOMBRES DE FIGMA
+// ============================================================
+
+/**
+ * Obtiene el nombre legible de un nodo desde el cache de Figma
+ * Si no lo encuentra, retorna el ID como fallback
+ */
+function getReadableNodeName(nodeId: string | null | undefined): string {
+  if (!nodeId) return '—'
+
+  // Buscar en el cache
+  const info = getNodeInfo(nodeId)
+
+  if (info) {
+    // Formato: "Nombre (TIPO)"
+    const type = info.type || 'NODE'
+    return `${info.name} (${type})`
+  }
+
+  // Fallback: devolver el ID
+  return nodeId
+}
+
+/**
+ * Traduce el tipo de evento de Figma a texto legible
+ */
+function getEventTypeLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    MOUSE_PRESS_OR_RELEASE: 'Click',
+    PRESENTED_NODE_CHANGED: 'Navegación',
+    NEW_STATE: 'Cambio de estado',
+  }
+  return labels[eventType] || eventType
+}
+// ============================================================
 // 🔥 LISTENER DE FIGMA - SOLO CLICS Y NAVEGACIÓN
 // ============================================================
-const handleFigmaMessage = (event: MessageEvent) => {
+const handleFigmaMessage = async (event: MessageEvent) => {
   // Solo mensajes de Figma
   if (event.origin !== 'https://www.figma.com') return
-  
+
   if (!isRecording.value || !flow.value) return
-  
+
   const data = event.data
   if (!data?.type) return
-  
+
   console.log('📨 Evento Figma:', data.type, data)
   lastFigmaEvent.value = data.type
-  
+
   // 🔥 SOLO PROCESAR CLICS Y NAVEGACIÓN
   switch (data.type) {
-    // ✅ CLIC EN EL PROTOTIPO
-    case 'MOUSE_PRESS_OR_RELEASE':
-      registerFigmaStep('interaction', '🖱️ Click en el prototipo')
+    // =========================================================
+    // CASO 1: CLICK EN EL PROTOTIPO
+    // =========================================================
+    case 'MOUSE_PRESS_OR_RELEASE': {
+      // 🆕 Extraer el componente clickeado
+      const targetNodeId = data.data?.targetNodeId
+      const presentedNodeId = data.data?.presentedNodeId
+
+      if (!targetNodeId) {
+        console.warn('⚠️ Click sin targetNodeId')
+        return
+      }
+
+      // 🆕 Obtener nombre legible del componente
+      const targetName = getReadableNodeName(targetNodeId)
+      const screenName = getReadableNodeName(presentedNodeId)
+
+      // 🆕 Formato final: "Click en [Nombre del botón]"
+      const displayName = `Click en "${targetName}"`
+      const detail = {
+        description: displayName,
+        targetNodeId,
+        targetName,
+        screenName,
+        screenNodeId: presentedNodeId,
+      }
+
+      console.log('🖱️ Click registrado:', detail)
+
+      await registerFigmaStep({
+        displayName,
+        presentedNodeId: targetNodeId,     // ⭐ Guardamos el ID del botón
+        eventType: 'click',
+        metadata: detail,
+      })
       break
-      
-    // ✅ NAVEGACIÓN / CAMBIO DE PANTALLA
-    case 'PRESENTED_NODE_CHANGED':
-      const nodeId = data.data?.presentedNodeId || 'unknown'
-      const nodeName = data.data?.presentedNodeName || `Pantalla ${nodeId}`
-      registerFigmaStep(nodeId, nodeName)
+    }
+
+    // =========================================================
+    // CASO 2: NAVEGACIÓN ENTRE PANTALLAS
+    // =========================================================
+    case 'PRESENTED_NODE_CHANGED': {
+      const presentedNodeId = data.data?.presentedNodeId
+
+      if (!presentedNodeId) {
+        console.warn('⚠️ Navegación sin presentedNodeId')
+        return
+      }
+
+      // 🆕 Obtener nombre legible de la pantalla
+      const screenName = getReadableNodeName(presentedNodeId)
+      const displayName = `Navegar a "${screenName}"`
+
+      console.log('📱 Navegación registrada:', { presentedNodeId, screenName })
+
+      await registerFigmaStep({
+        displayName,
+        presentedNodeId,
+        eventType: 'navigation',
+        metadata: {
+          screenName,
+          screenNodeId: presentedNodeId,
+        },
+      })
       break
-      
-    // ❌ IGNORAR EL RESTO DE EVENTOS
+    }
+    // ❌ IGNORAR EL RESTO DE EVENTOS (hover, scroll, etc.)
     default:
-      // No hacer nada con otros eventos
       break
   }
 }
-
 // ============================================================
 // REGISTRAR PASO DESDE FIGMA
 // ============================================================
-const registerFigmaStep = async (nodeId: string, nodeName: string) => {
+interface RegisterStepParams {
+  displayName: string
+  presentedNodeId: string
+  eventType: 'click' | 'navigation' | 'state_change'
+  metadata?: Record<string, any>
+}
+
+const registerFigmaStep = async (params: RegisterStepParams) => {
   if (!flow.value || !isRecording.value) return
-  
-  // Evitar duplicados consecutivos
+
+  const { displayName, presentedNodeId, eventType, metadata } = params
+
+  // Evitar duplicados consecutivos del mismo evento
   const lastClick = flowClicks.value[flowClicks.value.length - 1]
-  if (lastClick && lastClick.presentedNodeId === nodeId && lastClick.source === 'figma') {
+  if (
+    lastClick &&
+    lastClick.presentedNodeId === presentedNodeId &&
+    lastClick.source === 'figma'
+  ) {
+    console.log('⏭️ Evento duplicado, omitiendo')
     return
   }
 
   currentOrderIndex.value += 1
-  
+
   try {
     const click = await flowApi.createFlowClick({
       flowId: flow.value.flowId,
       orderIndex: currentOrderIndex.value,
-      nodeId: nodeName,
-      presentedNodeId: nodeId
+      nodeId: displayName,                    // 🆕 Nombre legible
+      presentedNodeId: presentedNodeId,       // 🆕 ID real del nodo
     })
-    
-    flowClicks.value.push({ ...click, source: 'figma' })
+
+    // 🆕 Guardar metadata adicional en el objeto local
+    const enrichedClick = {
+      ...click,
+      source: 'figma',
+      eventType,
+      metadata,
+    }
+
+    flowClicks.value.push(enrichedClick)
     clicksCount.value = flowClicks.value.length
-    
-    emit('click-added', click)
-    
+
+    emit('click-added', enrichedClick)
+
     $q.notify({
       type: 'positive',
-      message: `📍 Paso ${currentOrderIndex.value}: ${nodeName}`,
+      message: `📍 Paso ${currentOrderIndex.value}: ${displayName}`,
       timeout: 1500,
-      position: 'bottom'
+      position: 'bottom',
     })
   } catch (error) {
     console.error('Error al registrar paso automático:', error)
@@ -537,11 +657,17 @@ watch(() => props.recording, (newVal) => {
   }
 })
 
-onMounted(() => {
+
+onMounted(async () => {
+  // 🆕 Cargar nodos de Figma PRIMERO
+  if (props.fileKey) {
+    await loadFigmaNodes(props.fileKey)
+    console.log('📚 Nodos Figma cargados:', nodeCache.value.size)
+  }
+
   loadExistingFlow()
   window.addEventListener('message', handleFigmaMessage)
 })
-
 onUnmounted(() => {
   window.removeEventListener('message', handleFigmaMessage)
 })
@@ -553,7 +679,9 @@ defineExpose({
   addManualStep,
   isRecording: () => isRecording.value,
   flow: () => flow.value,
-  flowClicks: () => flowClicks.value
+  flowClicks: () => flowClicks.value,
+  nodeCache,                        
+  getReadableNodeName,              
 })
 </script>
 

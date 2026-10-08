@@ -1,3 +1,4 @@
+<!-- views/roles/experto/cognitive/CognitiveView.vue -->
 <template>
   <div class="q-pa-sm full-height">
 
@@ -5,25 +6,28 @@
     <!-- ============================================================
          ASIGNACIÓN DE EVALUACIÓN
     ============================================================= -->
-    <CognitiveAssignModal
-      v-if="status === 'assign'"
-      :evaluations="evaluations"
-      :loading="loadingEvaluations"
-      @select="selectEvaluation"
-    />
+<CognitiveAssignModal
+  v-if="status === 'assign'"
+  :evaluations="evaluations"
+  :loading="loadingEvaluations"
+  @select="selectEvaluation"
+  @reload="loadMyEvaluations"
+/>
 
     <!-- ============================================================
          LISTA DE TAREAS
     ============================================================= -->
-    <CognitiveTaskList
-      v-else-if="status === 'tasklist'"
-      :tasks="tasks"
-      :completed-task-ids="completedTaskIds"
-      :loading="loadingTasks"
-      :evaluation-name="selectedEvaluation?.name"
-      @select="selectTask"
-    />
-
+<CognitiveTaskList
+  v-else-if="status === 'tasklist'"
+  :tasks="tasks"
+  :completed-task-ids="completedTaskIds"
+  :loading="loadingTasks"
+  :evaluation-name="selectedEvaluation?.name"
+  :device-selection="selectedDevices"
+  @select="selectTask"
+  @back="volverAEvaluaciones"
+  @devices-selected="onDevicesSelected"
+/>
     <!-- ============================================================
          INICIO DE TAREA
     ============================================================= -->
@@ -36,62 +40,107 @@
       :loading="loadingStart"
       @iniciar="iniciarRecorrido"
     />
-<!-- Estado: Recorrido en curso -->
-    <template v-else-if="status === 'running'">
-      <div class="row full-height no-wrap">
-        <!-- Columna izquierda: Prototipo -->
-        <div class="col-12 col-md-8 col-lg-9 q-pa-sm">
-          <div class="full-height rounded-borders border border-grey-7 overflow-hidden">
-            <CognitivePrototype
-              ref="prototypeRef"
-              :file-key="fileKey"
-              :task-id="currentTask?.projectTaskId"
-              :flow-clicks="flowClicks"
-              :current-step-index="currentStepIndex"
-              @event="onFigmaEvent"
-              @next-step="nextStep"
-            />
-          </div>
-        </div>
+<!-- ============================================================ -->
+<!-- ESTADO: RECORRIDO EN CURSO                                    -->
+<!-- ============================================================ -->
+<template v-else-if="status === 'running'">
+  <div class="running-layout">
+    <!-- Barra de estado superior -->
+    <CognitiveStatusBar
+      :tiempo="getTimeFormatted()"
+      :emocion-emoji="emocionActualEmoji"
+      :emocion-label="emocionActualLabel"
+      :progress="progress"
+      :task-name="currentTask?.title"
+      @finalizar="finalizarRecorrido"
+    />
 
-        <!-- Columna derecha: Preguntas -->
-        <div class="col-12 col-md-4 col-lg-3 q-pa-sm">
-          <div class="full-height rounded-borders border border-grey-7 overflow-y-auto">
-            <CognitiveQuestions
-              :task="currentTask"
-              :flow-clicks="flowClicks"
-              :current-step-index="currentStepIndex"
-              :total-steps="flowClicks.length"
-              :is-last-step="isLastStep"
-              :is-completed="isTaskCompleted"
-              @save="onResponseSaved"
-              @skip="onResponseSkipped"
-              @complete="onTaskComplete"
-              @next-step="nextStep"
-            />
-          </div>
-        </div>
+    <!-- Contenido principal: Prototipo + Panel lateral -->
+    <div class="running-content">
+      <!-- Prototipo (SIEMPRE visible) -->
+      <div class="prototype-container">
+        <CognitivePrototype
+          ref="prototypeRef"
+          :file-key="fileKey"
+          :task-id="currentTask?.projectTaskId"
+          :flow-clicks="flowClicks"
+          :current-step-index="currentStepIndex"
+          @event="onFigmaEvent"
+          @step-completed="onStepCompleted"
+        />
       </div>
 
-      <!-- Barra de estado -->
-      <CognitiveStatusBar
-        :tiempo="getTimeFormatted()"
-        :emocion-emoji="emocionActualEmoji"
-        :emocion-label="emocionActualLabel"
-        :progress="progress"
-        :task-name="currentTask?.title"
-        @finalizar="finalizarRecorrido"
-      />
+      <!-- Panel de preguntas DESPLEGABLE -->
+      <transition name="slide-panel">
+        <div
+          v-if="panelOpen"
+          class="questions-panel-container"
+        >
+          <!-- Botón de cierre dentro del panel -->
+          <q-btn
+            class="panel-close-btn"
+            dense
+            round
+            unelevated
+            color="grey-8"
+            text-color="white"
+            icon="close"
+            size="sm"
+            @click="panelOpen = false"
+          >
+            <q-tooltip>Cerrar panel</q-tooltip>
+          </q-btn>
 
-      <!-- Barra de audio -->
-      <CognitiveAudioBar
-        :is-recording="isAudioRecording"
-        :audio-level="audioLevel"
-        :transcribed-text="transcribedText"
-        :is-connected="isTextAIConnected"
-        :last-sentiment="lastSentiment"
-      />
-    </template>
+          <CognitiveQuestions
+            :task="currentTask"
+            :flow-clicks="flowClicks"
+            :current-step-index="currentStepIndex"
+            :total-steps="flowClicks.length"
+            :is-last-step="isLastStep"
+            :is-completed="isTaskCompleted"
+            @save="onResponseSaved"
+            @skip="onResponseSkipped"
+            @complete="onTaskComplete"
+            @next-step="nextStep"
+          />
+        </div>
+      </transition>
+
+      <!-- Botón flotante para abrir el panel -->
+      <q-btn
+        v-if="!panelOpen"
+        class="floating-open-btn"
+        round
+        unelevated
+        color="primary"
+        icon="edit_note"
+        size="lg"
+        @click="panelOpen = true"
+      >
+        <q-badge
+          v-if="!isTaskCompleted"
+          color="negative"
+          floating
+          rounded
+        >
+          {{ flowClicks.length - currentStepIndex }}
+        </q-badge>
+        <q-tooltip>
+          Abrir panel de evaluación
+        </q-tooltip>
+      </q-btn>
+    </div>
+
+    <!-- Barra de audio inferior -->
+    <CognitiveAudioBar
+      :is-recording="isAudioRecording"
+      :audio-level="audioLevel"
+      :transcribed-text="transcribedText"
+      :is-connected="isTextAIConnected"
+      :last-sentiment="lastSentiment"
+    />
+  </div>
+</template>
 
     <!-- Estado: Tarea completada -->
     <CognitiveTaskComplete
@@ -189,6 +238,32 @@ const fileKey = ref('')
 const currentStepIndex = ref(0)
 const prototypeRef = ref<InstanceType<typeof CognitivePrototype> | null>(null)
 
+  const selectedDevices = ref<{
+  videoDeviceId: string
+  audioDeviceId: string
+  videoLabel: string
+  audioLabel: string
+} | null>(null)
+// Panel de preguntas (abierto/cerrado)
+const panelOpen = ref(false)
+
+// Cuando llega el evento de Figma → auto-abrir panel
+function onStepCompleted() {
+  // Auto-abrir el panel cuando el usuario hace una acción en el prototipo
+  if (!isTaskCompleted.value) {
+    panelOpen.value = true
+  }
+}
+
+// Al iniciar el recorrido → abrir el panel
+// (por si acaso, se cierra al terminar)
+watch(status, (newStatus) => {
+  if (newStatus === 'running') {
+    panelOpen.value = true
+  } else {
+    panelOpen.value = false
+  }
+})
 // Streams
 let faceStream: MediaStream | null = null
 let screenStream: MediaStream | null = null
@@ -295,6 +370,24 @@ const loadTasks = async (evaluationId: string) => {
 }
 
 
+const onDevicesSelected = (selection: {
+  videoDeviceId: string
+  audioDeviceId: string
+}) => {
+  selectedDevices.value = {
+    videoDeviceId: selection.videoDeviceId,
+    audioDeviceId: selection.audioDeviceId,
+    videoLabel: 'Cámara',
+    audioLabel: 'Micrófono',
+  }
+  console.log('✅ Dispositivos seleccionados:', selectedDevices.value)
+}
+
+const volverAEvaluaciones = () => {
+  selectedEvaluation.value = null
+  tasks.value = []
+  status.value = 'assign'
+}
 
 const selectTask = async (task: any) => {
   await session.loadTask(task)
@@ -683,3 +776,129 @@ onBeforeUnmount(() => {
   cleanupAudio()
 })
 </script>
+
+<style scoped>
+.running-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.running-content {
+  flex: 1;
+  position: relative;
+  display: flex;
+  padding: 12px;
+  overflow: hidden;
+  min-height: 0;
+  gap: 12px;
+}
+
+/* ============================================================ */
+/* PROTOTIPO (siempre visible, ocupa el espacio disponible)     */
+/* ============================================================ */
+.prototype-container {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+/* ============================================================ */
+/* PANEL DE PREGUNTAS (desplegable)                             */
+/* ============================================================ */
+.questions-panel-container {
+  width: 420px;
+  min-width: 380px;
+  max-width: 480px;
+  height: 100%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.panel-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================================ */
+/* BOTÓN FLOTANTE PARA ABRIR EL PANEL                           */
+/* ============================================================ */
+.floating-open-btn {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgba(30, 58, 138, 0.3);
+  animation: float-in 0.3s ease;
+}
+
+@keyframes float-in {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================================ */
+/* TRANSICIÓN DEL PANEL                                          */
+/* ============================================================ */
+.slide-panel-enter-active,
+.slide-panel-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-panel-enter-from,
+.slide-panel-leave-to {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* ============================================================ */
+/* RESPONSIVE                                                    */
+/* ============================================================ */
+@media (max-width: 1024px) {
+  .questions-panel-container {
+    width: 380px;
+    min-width: 340px;
+  }
+}
+
+@media (max-width: 768px) {
+  .running-content {
+    flex-direction: column;
+  }
+
+  .questions-panel-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 40%;
+    width: 100%;
+    max-width: 100%;
+    height: 60%;
+    z-index: 15;
+    background: white;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .prototype-container {
+    height: 100%;
+  }
+}
+</style>
