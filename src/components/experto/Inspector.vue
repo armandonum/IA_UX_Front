@@ -6,15 +6,7 @@
         <div class="text-subtitle2 text-dark">
           📍 En este momento ({{ formatTiempoS(currentTime) }})
         </div>
-        <q-btn
-          color="primary"
-          icon="add_alert"
-          label="Registrar Hallazgo"
-          size="sm"
-          @click="openFindingForm"
-          :disable="!isFormReady"
-          :loading="loading"
-        />
+        
       </div>
 
       <div class="row q-col-gutter-sm">
@@ -108,38 +100,25 @@
         </div>
       </div>
 
-      <!-- 📌 Botón de hallazgo en el momento exacto -->
-      <div class="q-mt-xs text-right">
-        <q-btn
-          color="primary"
-          icon="add_alert"
-          label="Registrar Hallazgo en este momento"
-          size="sm"
-          flat
-          @click="openFindingForm"
-          :disable="!isFormReady"
-        />
-        <span v-if="!isFormReady" class="text-caption text-grey-6 q-ml-sm">
-          (No hay datos de contexto disponibles)
-        </span>
-      </div>
+ 
     </q-card-section>
 
     <!-- Formulario rápido de hallazgo -->
-    <FindingsQuickForm
-      v-model="showFindingForm"
-      :ms="currentTime"
-      :task-name="taskName"
-      :evaluation-id="evaluationId"
-      :session-id="sessionId"
-      :task-id="taskId"
-      :nearest-event="nearestEvent"
-      :emotion-label="nearestEmotionLabel"
-      :sentiment-label="nearestSentiment?.uxLabel"
-      :nearest-comment="nearestComment"
-      @save="$emit('create-finding', $event)"
-      @close="showFindingForm = false"
-    />
+<FindingsQuickForm
+  v-model="showFindingForm"
+  :ms="currentTime"
+  :task-name="taskName"
+  :evaluation-id="evaluationId"
+  :session-id="sessionId"
+  :task-id="taskId"
+  :nearest-event="nearestEvent"
+  :emotion-label="nearestEmotionLabel"
+  :sentiment-label="nearestSentiment?.uxLabel"
+  :nearest-comment="nearestComment"
+  :node-cache="nodeCache"
+  @save="$emit('create-finding', $event)"
+  @close="showFindingForm = false"
+/>
   </q-card>
 </template>
 
@@ -162,6 +141,7 @@ const props = defineProps<{
   getNodeName: (id: string) => string
   getNodeType: (id: string) => string
   getNodeIdFromEvent: (ev: any) => string
+  nodeCache?: Map<string, { name: string; type: string; componentId?: string }> 
 }>()
 
 const emit = defineEmits<{
@@ -172,20 +152,14 @@ const emit = defineEmits<{
 const showFindingForm = ref(false)
 const loading = ref(false)
 
-const isFormReady = computed(() => {
-  return !!(props.evaluationId && props.sessionId)
-})
+
 
 const nodeId = computed(() => {
   if (!props.nearestEvent) return null
   return props.getNodeIdFromEvent(props.nearestEvent)
 })
 
-const openFindingForm = () => {
-  if (isFormReady.value) {
-    showFindingForm.value = true
-  }
-}
+
 
 function formatTiempoS(ms: number) {
   if (!isFinite(ms) || ms < 0) ms = 0

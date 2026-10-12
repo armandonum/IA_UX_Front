@@ -1,3 +1,4 @@
+<!-- src/components/reports/SentimentFindingsReport.vue -->
 <template>
   <div>
     <div v-if="loading" class="column items-center q-py-xl">
@@ -15,7 +16,7 @@
         <div class="row items-center justify-between q-mb-md">
           <div>
             <div class="text-h6 text-weight-bold">
-              💬 Sentimientos y Comentarios del Usuario
+               Sentimientos y Comentarios del Usuario
             </div>
             <div class="text-caption text-grey-7">
               Comentarios analizados y su hallazgo vinculado

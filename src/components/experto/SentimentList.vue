@@ -102,6 +102,7 @@
       </div>
 
       <!-- Formulario rápido de hallazgo -->
+           <!-- Formulario rápido de hallazgo -->
       <FindingsQuickForm
         v-model="showFindingForm"
         :ms="selectedSentiment?.elapsedMsTotal || 0"
@@ -109,7 +110,8 @@
         :evaluation-id="evaluationId"
         :session-id="sessionId"
         :task-id="taskId"
-        :sentiment-label="selectedSentiment?.uxLabel" 
+        :sentiment-label="selectedSentiment?.uxLabel"
+        :sentiment-id="selectedSentiment?.sentimentId"
         :nearest-comment="getNearestComment(selectedSentiment?.elapsedMsTotal || 0)"
         @save="$emit('create-finding', $event)"
         @close="showFindingForm = false"

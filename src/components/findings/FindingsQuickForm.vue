@@ -44,6 +44,27 @@
         </div>
 
         <!-- Comentario cercano (si existe) -->
+        <!-- 🆕 Componente interactuado -->
+        <div
+          v-if="componentInfo"
+          class="q-mb-md q-pa-sm bg-purple-1 rounded"
+        >
+          <div class="row items-center q-gutter-xs">
+            <q-icon name="widgets" size="14px" color="purple" />
+            <div class="text-caption text-grey-7">Componente:</div>
+            <div class="text-caption text-purple-9 text-weight-medium">
+              {{ componentInfo.name }}
+            </div>
+            <q-badge color="purple" text-color="white" outline size="sm">
+              {{ componentInfo.type }}
+            </q-badge>
+          </div>
+          <div class="text-caption text-grey-6 font-mono q-mt-xs">
+            ID: {{ componentInfo.id }}
+          </div>
+        </div>
+
+        <!-- Comentario cercano (si existe) -->
         <div v-if="nearestComment" class="q-mb-md p-2 bg-blue-50 rounded border border-blue-200">
           <div class="text-caption text-grey-6">
             <q-icon name="chat" size="14px" />
@@ -51,6 +72,9 @@
           </div>
           <div class="text-caption text-dark q-mt-xs">"{{ nearestComment.text }}"</div>
         </div>
+
+
+        
 
         <q-separator class="q-my-sm" />
 
@@ -162,7 +186,9 @@ const props = defineProps<{
   nearestEvent?: any
   emotionLabel?: string
   sentimentLabel?: string
+  sentimentId?: string | null
   nearestComment?: any
+  nodeCache?: Map<string, { name: string; type: string; componentId?: string }>
 }>()
 
 const emit = defineEmits<{
@@ -216,6 +242,37 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
+//  Computed para el nombre enriquecido del componente
+const enrichedNodeId = computed(() => {
+  const rawId = props.nearestEvent?.node_id
+  if (!rawId) return '—'
+
+  // Si tenemos cache, enriquecer
+  if (props.nodeCache) {
+    const info = props.nodeCache.get(rawId)
+    if (info && info.name) {
+      const type = info.type && info.type !== 'unknown' ? info.type : 'NODE'
+      return `${info.name} (${type}) [${rawId}]`
+    }
+  }
+
+  return rawId
+})
+
+const componentInfo = computed(() => {
+  const rawId = props.nearestEvent?.node_id
+  if (!rawId || !props.nodeCache) return null
+
+  const info = props.nodeCache.get(rawId)
+  if (!info) return null
+
+  return {
+    name: info.name,
+    type: info.type,
+    id: rawId,
+  }
+})
+
 const resetForm = () => {
   // Pre-cargar datos del contexto
   let suggestedType = 'problem'
@@ -258,11 +315,18 @@ const save = async () => {
 
   loading.value = true
   try {
+        // 🆕 PRIORIDAD de vinculación:
+    // 1. Si viene de un sentimiento → sentimentId
+    // 2. Si viene de un comentario → commentId
+    const userCommentId = props.sentimentId
+      || props.nearestComment?.commentId
+      || null
+
     const data = {
       evaluationId: props.evaluationId,
       sessionId: props.sessionId,
       taskId: props.taskId || null,
-      nodeId: props.nearestEvent?.node_id || null,
+      nodeId: enrichedNodeId.value !== '—' ? enrichedNodeId.value : null,
       description: form.value.description,
       type: form.value.type,
       severity: form.value.severity,
@@ -275,14 +339,19 @@ const save = async () => {
       emotionInferred: props.emotionLabel || null,
       textualSentiment: props.sentimentLabel || null,
 
-      // ✅ Comentario cercano
+      // ✅ Comentario y vinculación
       userComment: props.nearestComment?.text || null,
-      userCommentId: props.nearestComment?.commentId || null,
+      userCommentId,                      // 🆕 FIX: sentiment_id prioritario
 
       status: 'pending',
       frequency: 1,
     }
 
+    console.log('📤 Guardando hallazgo con vinculación:', {
+      sentimentId: props.sentimentId,
+      commentId: props.nearestComment?.commentId,
+      finalUserCommentId: userCommentId,
+    })
     console.log('📤 Guardando hallazgo con datos:', data)
 
     emit('save', data)
@@ -291,6 +360,7 @@ const save = async () => {
     loading.value = false
   }
 }
+
 // Helpers
 const traduccionesEventos: Record<string, string> = {
   'INITIAL_LOAD': 'Carga inicial',

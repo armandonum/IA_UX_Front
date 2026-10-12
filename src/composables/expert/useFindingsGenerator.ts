@@ -24,6 +24,7 @@ interface TimelineData {
   getNearestEmotion: (ms: number) => any
   getNearestComment: (ms: number) => any
   getNearestSentiment: (ms: number) => any
+  enrichNodeId?: (rawId: string | null | undefined) => string
 }
 
 interface TimeWindow {
@@ -181,7 +182,7 @@ export const useFindingsGenerator = () => {
   // ============================================================
   // GENERAR HALLAZGOS POR VENTANA
   // ============================================================
- function generateFindingsFromWindow(
+function generateFindingsFromWindow(
   window: TimeWindow,
   data: TimelineData,
   config: FindingGenerationConfig,
@@ -190,8 +191,17 @@ export const useFindingsGenerator = () => {
   const midMs = (window.startMs + window.endMs) / 2
 
   const nearestEvent = data.getNearestEvent(midMs)
-  const nodeId = nearestEvent ? data.getNodeIdFromEvent(nearestEvent) : null
-  const nodeName = nearestEvent?.screen_name || nodeId || 'pantalla desconocida'
+  const rawNodeId = nearestEvent ? data.getNodeIdFromEvent(nearestEvent) : null
+
+  // 🆕 Enriquecer el nodeId si hay cache disponible
+  const nodeId = rawNodeId && data.enrichNodeId
+    ? data.enrichNodeId(rawNodeId)
+    : rawNodeId
+
+  // Para el nombre legible, extraer el nombre del componente
+  const nodeName = nodeId && nodeId !== '—'
+    ? nodeId
+    : 'pantalla desconocida'
   const eventType = getHumanLabel(
     'eventType',
     nearestEvent?.event_type || 'interacción',
@@ -290,7 +300,7 @@ export const useFindingsGenerator = () => {
     }
   }
 
-  // ============================================================
+   // ============================================================
   // REGLA 3: Sentimiento
   // ============================================================
   if (config.includeSentiments && window.sentiments.length > 0) {
@@ -314,6 +324,9 @@ export const useFindingsGenerator = () => {
       nodeName,
     )
 
+    // 🆕 FIX: Guardar sentimentId para vincular con text_sentiments
+    const primarySentiment = window.sentiments[0]
+
     findings.push(
       createFinding({
         type: template.type,
@@ -321,7 +334,7 @@ export const useFindingsGenerator = () => {
         description,
         recommendation,
         source: 'sentiment',
-        confidence: window.sentiments[0]?.confidence || 0.7,
+        confidence: primarySentiment?.confidence || 0.7,
         nodeId,
         window,
         evaluationId: data.evaluationId,
@@ -329,12 +342,12 @@ export const useFindingsGenerator = () => {
         taskId: data.taskId || null,
         textualSentiment: dominantSentiment,
         userComment: commentText,
+        userCommentId: primarySentiment?.sentimentId || null,   // 🆕 FIX
         eventType,
-        getNearestSentiment: data.getNearestSentiment, // ✅ NUEVO
+        getNearestSentiment: data.getNearestSentiment,
       }),
     )
   }
-
   // ============================================================
   // REGLA 4: Solo comentario de usuario
   // ============================================================
@@ -410,6 +423,7 @@ export const useFindingsGenerator = () => {
   emotionInferred?: string
   textualSentiment?: string
   userComment?: string
+  userCommentId?: string | null  
   expertComment?: string
   expertCommentId?: string
   eventType?: string
@@ -436,6 +450,49 @@ export const useFindingsGenerator = () => {
       }
     }
   }
+   // ============================================================
+  // 🆕 FIX: Definir el userCommentId según el SOURCE del hallazgo
+  // ============================================================
+  // - source = 'sentiment' → debe usar sentimentId (NO commentId)
+  // - source = 'user_comment' → debe usar commentId
+  // - source = 'emotion' / 'mixed' / 'expert_comment' → buscar sentimiento cercano PRIMERO, luego comentario
+  // ============================================================
+
+  let finalUserCommentId: string | null = params.userCommentId || null
+
+  // Si es un hallazgo de SENTIMIENTO, SOLO debe tener sentimentId
+  if (params.source === 'sentiment') {
+    finalUserCommentId = params.userCommentId || null
+  }
+  // Si es un hallazgo de COMENTARIO, debe tener commentId
+  else if (params.source === 'user_comment') {
+    finalUserCommentId = params.window.comments[0]?.commentId || null
+  }
+  // Si es un hallazgo de EMOCIÓN o MIXTO, intentar primero el sentimiento más cercano
+  else if (params.source === 'emotion' || params.source === 'mixed') {
+    // Buscar el sentimiento más cercano en el tiempo
+    if (!finalUserCommentId && params.getNearestSentiment) {
+      const midMs = (params.window.startMs + params.window.endMs) / 2
+      const nearestSentiment = params.getNearestSentiment(midMs)
+
+      if (nearestSentiment) {
+        const diff = Math.abs((nearestSentiment.elapsedMsTotal || 0) - midMs)
+        // Solo si está razonablemente cerca (< 15s)
+        if (diff <= 15000) {
+          finalUserCommentId = nearestSentiment.sentimentId || null
+        }
+      }
+    }
+
+    // Si no hay sentimiento cercano, usar comentario
+    if (!finalUserCommentId) {
+      finalUserCommentId = params.window.comments[0]?.commentId || null
+    }
+  }
+  // Para otros sources (expert_comment), no guardar userCommentId
+  else {
+    finalUserCommentId = null
+  }
 
   return {
     _tempId: generateTempId(params.source),
@@ -455,10 +512,10 @@ export const useFindingsGenerator = () => {
     recommendation: params.recommendation,
     status: 'pending',
     emotionInferred: params.emotionInferred || null,
-    textualSentiment: finalSentiment || null,          // ✅ AHORA SÍ
-    userComment: finalUserComment || null,             // ✅ AHORA SÍ
+    textualSentiment: finalSentiment || null,
+    userComment: finalUserComment || null,
     expertComment: params.expertComment || null,
-    userCommentId: params.window.comments[0]?.commentId || null,
+    userCommentId: finalUserCommentId,   // ✅ FIX aplicado
     expertCommentId: params.expertCommentId || null,
     aggregatedFrom: [],
     occurrences: 1,

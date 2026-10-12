@@ -1,4 +1,4 @@
-<!-- components/findings/FindingsDashboard.vue - ACTUALIZADO -->
+<!-- components/findings/FindingsDashboard.vue -->
 <template>
   <div class="findings-dashboard q-pa-md">
     <!-- ============================================================ -->
@@ -117,7 +117,7 @@
 
           <template v-else>
             <!-- Resumen -->
-            <FindingsSummary
+           <FindingsSummary
               :summary="summary"
               :findings="findings"
               :loading="loading"
@@ -125,12 +125,12 @@
             />
 
             <!-- Filtros -->
-            <FindingsFilters
+            <!-- <FindingsFilters
               v-model:filters="filters"
               :findings-count="findings.length"
               @apply="applyFilters"
               @reset="resetFilters"
-            />
+            /> -->
 
             <!-- Lista -->
             <FindingsList
@@ -233,7 +233,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useFindings } from '@/composables/useFindings'
 import FindingsSummary from './FindingsSummary.vue'
 import FindingsList from './FindingsList.vue'
-import FindingsFilters from './FindingsFilters.vue'
+// import FindingsFilters from './FindingsFilters.vue'
 import FindingsForm from './FindingsForm.vue'
 import FindingDetailModal from './FindingDetailModal.vue'
 import FindingsGenerator from '../experto/expFormales/findings/FindingsGenerator.vue'
@@ -286,8 +286,8 @@ const {
   updateFinding,
   updateFindingStatus,
   deleteFinding,
-  applyFilters,
-  resetFilters,
+  // applyFilters,
+  // resetFilters,
 } = useFindings()
 
 // ============================================================

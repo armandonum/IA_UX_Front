@@ -6,7 +6,7 @@
       <q-card-section class="bg-primary text-white">
         <div class="row items-center justify-between">
           <div>
-            <div class="text-h6">📋 Revisión de Hallazgos Generados</div>
+            <div class="text-h6"> Revisión de Hallazgos Generados</div>
             <div class="text-subtitle2">
               {{ findings.length }} hallazgos encontrados. Revisa y edita antes de guardar.
             </div>

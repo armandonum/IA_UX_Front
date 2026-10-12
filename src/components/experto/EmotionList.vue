@@ -110,6 +110,7 @@
       </div>
 
       <!-- Modal rápido -->
+      <!-- Modal rápido -->
       <FindingsQuickForm
         v-model="showFindingForm"
         :ms="selectedReading?.elapsedMsTotal || 0"
@@ -118,6 +119,7 @@
         :task-id="taskId"
         :emotion-label="getEmotionLabel(selectedReading?.dominantEmotion)"
         :nearest-comment="getNearestComment(selectedReading?.elapsedMsTotal || 0)"
+        :sentiment-id="getNearestSentimentId(selectedReading?.elapsedMsTotal || 0)"
         @save="$emit('create-finding', $event)"
         @close="showFindingForm = false"
       />
@@ -142,8 +144,24 @@ const props = defineProps<{
   taskId?: string
   taskName?: string
   getNearestComment?: (ms: number) => any
+  sentiments?: any[]  
 }>()
 
+function getNearestSentimentId(ms: number): string | null {
+  if (!props.sentiments?.length) return null
+
+  const nearest = props.sentiments.reduce((closest, s) => {
+    const diff1 = Math.abs((s.elapsedMsTotal || 0) - ms)
+    const diff2 = Math.abs((closest.elapsedMsTotal || 0) - ms)
+    return diff1 < diff2 ? s : closest
+  })
+
+  // Solo si está razonablemente cerca (< 10s)
+  const diff = Math.abs((nearest.elapsedMsTotal || 0) - ms)
+  if (diff > 10000) return null
+
+  return nearest.sentimentId || null
+}
 const emit = defineEmits<{
   (e: 'seek', ms: number): void
   (e: 'create-finding', data: any): void

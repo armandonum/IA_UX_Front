@@ -80,6 +80,52 @@ export function useFigmaNodes() {
     return info?.type || '—'
   }
 
+
+
+  /**
+   * Enriquece un nodeId crudo con el nombre y tipo del componente.
+   *
+   * @param rawNodeId - ID crudo del nodo (ej: "54:15")
+   * @returns String enriquecido (ej: "Button (INSTANCE) [54:15]")
+   *
+   * Casos especiales:
+   * - Si rawNodeId ya está enriquecido (contiene "["), se retorna como está
+   * - Si no se encuentra en cache, se retorna el ID crudo
+   * - Si rawNodeId es null/vacío, se retorna '—'
+   */
+  function enrichNodeId(rawNodeId: string | null | undefined): string {
+    if (!rawNodeId) return '—'
+
+    const cleanId = String(rawNodeId).trim()
+    if (!cleanId) return '—'
+
+    // Si ya está enriquecido, retornarlo tal cual
+    if (cleanId.includes('[') && cleanId.includes(']')) {
+      return cleanId
+    }
+
+    // Buscar en cache
+    const info = nodeCache.value.get(cleanId)
+
+    if (info && info.name) {
+      const type = info.type && info.type !== 'unknown' ? info.type : 'NODE'
+      return `${info.name} (${type}) [${cleanId}]`
+    }
+
+    // Fallback: solo el ID crudo
+    return cleanId
+  }
+
+  /**
+   * Extrae el ID crudo de un nodeId enriquecido.
+   * Ej: "Button (INSTANCE) [54:15]" → "54:15"
+   * Si no está enriquecido, retorna el string tal cual.
+   */
+  function extractRawNodeId(nodeId: string | null | undefined): string {
+    if (!nodeId) return ''
+    const match = String(nodeId).match(/\[([^\]]+)\]$/)
+    return match ? match[1] : String(nodeId)
+  }
   return {
     nodeCache,
     loading,
@@ -87,6 +133,8 @@ export function useFigmaNodes() {
     loadFigmaNodes,
     getNodeInfo,
     getNodeName,
-    getNodeType
+    getNodeType,
+      enrichNodeId,          
+         extractRawNodeId,
   }
 }

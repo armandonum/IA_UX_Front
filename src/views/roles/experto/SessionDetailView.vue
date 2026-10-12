@@ -116,24 +116,24 @@
         <!-- ========================================================== -->
         <!-- SECCIÓN: INSPECTOR -->
         <!-- ========================================================== -->
-        <Inspector
-          :current-time="currentTimeMs"
-          :nearest-event="getNearestEvent(currentTimeMs)"
-          :nearest-emotion-label="getNearestEmotion(currentTimeMs)?.dominantEmotion || '—'"
-          :comments-near="comentariosCercanos(currentTimeMs).length"
-          :nearest-comment="getNearestComment(currentTimeMs)"
-          :nearest-sentiment="getNearestSentiment(currentTimeMs)"
-          :task-name="session?.taskDescription"
-          :evaluation-id="session?.proyectId || ''"
-          :session-id="sessionId"
-          :task-id="session?.taskId"
-          :get-node-name="getNodeName"
-          :get-node-type="getNodeType"
-          :get-node-id-from-event="getNodeIdFromEvent"
-          @create-finding="handleCreateFinding"
-          @show-comment="openCommentModal"
-        />
-
+  <Inspector
+  :current-time="currentTimeMs"
+  :nearest-event="getNearestEvent(currentTimeMs)"
+  :nearest-emotion-label="getNearestEmotion(currentTimeMs)?.dominantEmotion || '—'"
+  :comments-near="comentariosCercanos(currentTimeMs).length"
+  :nearest-comment="getNearestComment(currentTimeMs)"
+  :nearest-sentiment="getNearestSentiment(currentTimeMs)"
+  :task-name="session?.taskDescription"
+  :evaluation-id="session?.proyectId || ''"
+  :session-id="sessionId"
+  :task-id="session?.taskId"
+  :get-node-name="getNodeName"
+  :get-node-type="getNodeType"
+  :get-node-id-from-event="getNodeIdFromEvent"
+  :node-cache="nodeCache"
+  @create-finding="handleCreateFinding"
+  @show-comment="openCommentModal"
+/>
         <!-- ========================================================== -->
         <!-- SECCIÓN: MAPA DE CALOR -->
         <!-- ========================================================== -->
@@ -149,6 +149,20 @@
               @click="showHeatmap = true"
             />
           </div>
+
+           <!-- 🆕 BOTÓN DE EYE TRACKING -->
+  <div class="col">
+    <q-btn
+      unelevated
+      color="primary"
+      icon="visibility"
+      label="Ver eye tracking"
+      class="full-width"
+      style="background: #7c3aed; color: #ffffff"
+      @click="showGazeAnalysis = true"
+    />
+  </div>
+
           <div class="col-auto">
             <q-btn flat style="color: #3b82f6" icon="refresh" @click="refreshHeatmap" />
           </div>
@@ -158,6 +172,7 @@
 <!-- ========================================================== -->
 <EmotionList
   :readings="emotionReadings"
+   :sentiments="sentiments" 
   :evaluation-id="session?.proyectId || ''"
   :session-id="sessionId"
   :task-id="session?.taskId"
@@ -221,24 +236,7 @@
         <!-- ========================================================== -->
         <MetadataExpansion :session="session" />
 
-        <!-- ========================================================== -->
-        <!-- SECCIÓN: REPORTE -->
-        <!-- ========================================================== -->
-        <div class="row q-mb-md">
-          <div class="col">
-            <SessionReportGenerator
-              :session="session"
-              :findings="findings"
-              :events="events"
-              :emotion-readings="emotionReadings"
-              :sentiments="sentiments"
-              :comments="comments"
-              :expert-comments="expertComments"
-              :task-name="session?.taskDescription"
-              :project-name="session?.proyectId"
-            />
-          </div>
-        </div>
+        <!-- REPORTE PDF: ELIMINADO (por solicitud) -->
 
         <!-- ========================================================== -->
         <!-- SECCIÓN: HALLAZGOS -->
@@ -297,6 +295,16 @@
         :node-id="currentNodeId || undefined"
         :session-id="sessionId"
       />
+      <!-- 🆕 Eye Tracking Analysis Panel -->
+<GazeAnalysisPanel
+  v-model:show="showGazeAnalysis"
+  :session-id="sessionId"
+  :project-id="session?.proyectId || ''"
+  :thumbnail-url="(session as any)?.thumbnailUrl || null"
+  :video-url="screenUrl"
+  :node-cache="nodeCache"
+  @close="showGazeAnalysis = false"
+/>
     </div>
   </template>
 <script setup lang="ts">
@@ -324,8 +332,8 @@ import CommentList from '@/components/experto/CommentList.vue'
 import CommentModal from '@/components/experto/CommentModal.vue'
 import MetadataExpansion from '@/components/experto/MetadataExpansion.vue'
 import FindingsDashboard from '@/components/findings/FindingsDashboard.vue'
-import SessionReportGenerator from '@/components/experto/SessionReportGenerator.vue'
 import HeatmapViewer from '@/components/experto/HeatmapViewer.vue'
+import GazeAnalysisPanel from '@/components/experto/gaze/GazeAnalysisPanel.vue'
 import SentimentList from '@/components/experto/SentimentList.vue'
 import ExpertCommentModal from '@/components/experto/ExpertCommentModal.vue'
 import ExpertCommentList from '@/components/experto/ExpertCommentList.vue'
@@ -354,9 +362,11 @@ const {
   loadFigmaNodes,
   loading: loadingNodes,
   nodeCache,
+    enrichNodeId,           
+  extractRawNodeId,
 } = useFigmaNodes()
 
-// ✅ NUEVO: composable de findings para exponer los hallazgos al reporte
+//  composable de findings para exponer los hallazgos al reporte
 const {
   findings,
   loadFindingsBySession,
@@ -390,6 +400,7 @@ const videoErrors = reactive<{ screen: string | null; face: string | null }>({
 })
 const currentNodeId = ref<string | null>(null)
 const showHeatmap = ref(false)
+const showGazeAnalysis = ref(false)
 
 // Refs de video
 const screenVideoRef = ref<InstanceType<typeof VideoPlayer> | null>(null)
@@ -442,6 +453,7 @@ const timelineData = computed(() => ({
   getNearestEmotion,
   getNearestComment,
   getNearestSentiment,
+  enrichNodeId,
 }))
 
 // ============================================================
@@ -788,25 +800,49 @@ function onVideoError(cual: 'screen' | 'face') {
   videoErrors[cual] =
     'no se pudo reproducir el archivo (revisa la URL o el formato).'
 }
+function handleAddFindingFromTimeline(item: any) {
+  // 🆕 Enriquecer el nodeId con nombre y tipo
+  const rawNodeId = getNodeIdFromEvent(getNearestEvent(item.elapsedMsTotal))
+  const enrichedNode = enrichNodeId(rawNodeId)
 
-function handleAddFindingFromTimeline(emotion: any) {
+  // 🆕 Detectar si viene de un sentimiento o de una emoción
+  const isSentiment = !!item.sentimentId || !!item.uxLabel
+
+  // 🆕 Si es emoción, buscar el sentimiento más cercano para vincular
+  const nearestSentiment = isSentiment
+    ? item
+    : getNearestSentiment(item.elapsedMsTotal)
+
   const data = {
     evaluationId: session.value?.proyectId || '',
     sessionId: sessionId,
     taskId: session.value?.taskId || null,
-    nodeId:
-      getNodeIdFromEvent(getNearestEvent(emotion.elapsedMsTotal)) || null,
-    description: `Emoción detectada: ${emotion.dominantEmotion || 'neutral'}`,
+    nodeId: enrichedNode !== '—' ? enrichedNode : null,
+    description: isSentiment
+      ? `Sentimiento detectado: ${item.uxLabel || 'Neutral'}`
+      : `Emoción detectada: ${item.dominantEmotion || 'neutral'}`,
     type: 'problem',
     severity: 'medium',
     impact: 'medium',
     priority: 'medium',
     recommendation: null,
     expertComment: null,
-    emotionInferred: emotion.dominantEmotion || null,
-    textualSentiment: null,
-    userComment: null,
-    userCommentId: null,
+
+    // 🆕 Contexto afectivo
+    emotionInferred: isSentiment
+      ? null
+      : (item.dominantEmotion || null),
+    textualSentiment: isSentiment
+      ? (item.uxLabel || null)
+      : (nearestSentiment?.uxLabel || null),
+
+    // 🆕 Comentario y vinculación
+    userComment: isSentiment
+      ? (item.text || null)
+      : (nearestSentiment?.text || null),
+    // ⭐ FIX: si hay sentimiento cercano, guardar su sentimentId
+    userCommentId: nearestSentiment?.sentimentId || null,
+
     status: 'pending',
     frequency: 1,
   }
