@@ -1,7 +1,9 @@
 <!-- components/experto/gaze/GazeVideoOverlay.vue -->
 <template>
   <div class="gaze-video-overlay">
-    <!-- Controles superiores -->
+    <!-- ============================================================ -->
+    <!-- CONTROLES                                                     -->
+    <!-- ============================================================ -->
     <div class="row items-center q-gutter-sm q-mb-md">
       <q-btn
         color="primary"
@@ -32,17 +34,17 @@
 
       <q-space />
 
-      <!-- Toggle puntos -->
       <q-toggle
-        v-model="showGazePoints"
-        label="Mostrar puntos"
+        v-model="showTrail"
+        label="Rastro de mirada"
         dense
         color="primary"
+        @update:model-value="redrawTrail"
       />
 
       <q-toggle
-        v-model="showFixations"
-        label="Mostrar fijaciones"
+        v-model="showCurrentMarker"
+        label="Punto actual"
         dense
         color="primary"
       />
@@ -55,21 +57,28 @@
       </div>
     </div>
 
-    <!-- Loading -->
+    <!-- ============================================================ -->
+    <!-- LOADING                                                       -->
+    <!-- ============================================================ -->
     <div v-if="loading" class="column items-center q-py-xl">
       <q-spinner color="primary" size="48px" />
       <div class="text-caption text-grey-7 q-mt-sm">Cargando video y datos...</div>
     </div>
 
-    <!-- Sin video -->
+    <!-- ============================================================ -->
+    <!-- SIN VIDEO                                                     -->
+    <!-- ============================================================ -->
     <div v-else-if="!videoUrl" class="text-center q-py-xl text-grey-6">
       <q-icon name="videocam_off" size="64px" />
       <div class="text-h6 q-mt-md">No hay video de pantalla</div>
       <div class="text-caption">Esta sesión no tiene video grabado</div>
     </div>
 
-    <!-- Video + Canvas overlay -->
+    <!-- ============================================================ -->
+    <!-- VIDEO + CANVAS                                                -->
+    <!-- ============================================================ -->
     <div v-else class="video-container">
+      <!-- Video -->
       <video
         ref="videoRef"
         :src="videoUrl"
@@ -82,7 +91,7 @@
         crossorigin="anonymous"
       />
 
-      <!-- Canvas overlay con puntos de mirada -->
+      <!-- Canvas con el rastro de mirada -->
       <canvas
         ref="canvasRef"
         class="gaze-canvas"
@@ -90,9 +99,9 @@
         :height="videoHeight"
       />
 
-      <!-- Gaze actual destacado -->
+      <!-- Punto actual (opcional, encima del canvas) -->
       <div
-        v-if="showGazePoints && currentGaze"
+        v-if="showCurrentMarker && currentGaze"
         class="current-gaze-marker"
         :style="{
           left: (currentGaze.gazeX * 100) + '%',
@@ -101,21 +110,11 @@
       >
         <div class="gaze-marker-inner" />
       </div>
-
-      <!-- Puntos cercanos al tiempo actual -->
-      <div
-        v-for="(point, idx) in nearbyGazePoints"
-        :key="`nearby-${idx}`"
-        class="nearby-gaze-marker"
-        :style="{
-          left: (point.gazeX * 100) + '%',
-          top: (point.gazeY * 100) + '%',
-          opacity: point.opacity,
-        }"
-      />
     </div>
 
-    <!-- Barra de progreso interactiva -->
+    <!-- ============================================================ -->
+    <!-- BARRA DE PROGRESO                                             -->
+    <!-- ============================================================ -->
     <q-slider
       v-if="videoReady"
       v-model="currentTimeMs"
@@ -128,10 +127,30 @@
       :label-value="formatTime(currentTimeMs)"
     />
 
-    <!-- Info actual -->
-    <div v-if="currentGaze && videoReady" class="row items-center q-gutter-md q-mt-md">
+    <!-- ============================================================ -->
+    <!-- LEYENDA                                                       -->
+    <!-- ============================================================ -->
+    <div v-if="videoReady" class="row items-center q-gutter-md q-mt-md">
+      <div class="text-caption text-grey-7 text-weight-medium">
+        Intensidad de mirada acumulada:
+      </div>
+      <div class="heat-legend-bar" />
+      <div class="text-caption text-grey-6">
+        Menos mirado
+        <q-icon name="arrow_right_alt" size="14px" />
+        Más mirado
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- INFO ACTUAL                                                   -->
+    <!-- ============================================================ -->
+    <div
+      v-if="currentGaze && videoReady"
+      class="row items-center q-gutter-md q-mt-md"
+    >
       <q-card flat bordered class="q-pa-sm">
-        <div class="text-caption text-grey-7">Posición de mirada actual</div>
+        <div class="text-caption text-grey-7">Posición actual</div>
         <div class="text-body2 font-mono">
           X: {{ (currentGaze.gazeX * 100).toFixed(1) }}% |
           Y: {{ (currentGaze.gazeY * 100).toFixed(1) }}%
@@ -188,22 +207,22 @@ const videoHeight = ref(720)
 const gazeEvents = ref<GazeEvent[]>([])
 
 // Toggles
-const showGazePoints = ref(true)
-const showFixations = ref(true)
+const showTrail = ref(true)
+const showCurrentMarker = ref(true)
 
-// Animation frame
-let animationFrameId: number | null = null
+// Canvas persistente (para acumular densidad sin perder el rastro)
+let trailCanvas: HTMLCanvasElement | null = null
+let trailCtx: CanvasRenderingContext2D | null = null
+
+// Eventos ya procesados (para no redibujar los mismos)
+let processedEventIds = new Set<string>()
 
 // ============================================================
 // COMPUTED
 // ============================================================
-/**
- * Gaze point en el tiempo actual (interpolado)
- */
 const currentGaze = computed(() => {
   if (!gazeEvents.value.length) return null
 
-  // Buscar el evento más cercano al tiempo actual (±100ms)
   const closest = gazeEvents.value.reduce((prev, curr) => {
     const prevDiff = Math.abs(prev.elapsedMsTotal - currentTimeMs.value)
     const currDiff = Math.abs(curr.elapsedMsTotal - currentTimeMs.value)
@@ -211,28 +230,9 @@ const currentGaze = computed(() => {
   })
 
   const diff = Math.abs(closest.elapsedMsTotal - currentTimeMs.value)
-  if (diff > 300) return null // No mostrar si está muy lejos
+  if (diff > 300) return null
 
   return closest
-})
-
-/**
- * Puntos cercanos al tiempo actual (para efecto estela)
- */
-const nearbyGazePoints = computed(() => {
-  const WINDOW_MS = 500 // 500ms antes
-  const current = currentTimeMs.value
-
-  return gazeEvents.value
-    .filter((e) => {
-      const diff = current - e.elapsedMsTotal
-      return diff >= 0 && diff <= WINDOW_MS
-    })
-    .map((e) => {
-      const age = current - e.elapsedMsTotal
-      const opacity = Math.max(0, 1 - age / WINDOW_MS) * 0.5
-      return { ...e, opacity }
-    })
 })
 
 // ============================================================
@@ -271,13 +271,9 @@ function onVideoLoaded() {
   videoWidth.value = video.videoWidth
   videoHeight.value = video.videoHeight
 
-  // Ajustar canvas al tamaño real del video
   nextTick(() => {
-    const canvas = canvasRef.value
-    if (canvas) {
-      canvas.width = videoWidth.value
-      canvas.height = videoHeight.value
-    }
+    initTrailCanvas()
+    redrawTrail()
   })
 }
 
@@ -285,9 +281,6 @@ function onTimeUpdate() {
   const video = videoRef.value
   if (!video) return
   currentTimeMs.value = video.currentTime * 1000
-
-  // Redibujar canvas
-  drawCanvas()
 }
 
 function togglePlay() {
@@ -308,6 +301,12 @@ function restart() {
   if (!video) return
   video.currentTime = 0
   currentTimeMs.value = 0
+
+  // Resetear rastro
+  processedEventIds.clear()
+  if (trailCanvas && trailCtx) {
+    trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+  }
   drawCanvas()
 }
 
@@ -317,9 +316,6 @@ function onSpeedChange(value: number | null) {
   if (video) video.playbackRate = value
 }
 
-/**
- * Handler del slider que acepta `number | null`
- */
 function onSliderChange(value: number | null) {
   if (value === null) return
   seekVideo(value)
@@ -330,63 +326,238 @@ function seekVideo(ms: number) {
   if (!video) return
   video.currentTime = ms / 1000
   currentTimeMs.value = ms
-  drawCanvas()
+
+  // Al hacer seek, reconstruir el rastro hasta este punto
+  rebuildTrailUntil(ms)
 }
 
 // ============================================================
-// CANVAS DRAW
+// TRAIL CANVAS (acumulativo y persistente)
+// ============================================================
+function initTrailCanvas() {
+  // Crear canvas temporal (invisible en el DOM) para acumular
+  trailCanvas = document.createElement('canvas')
+  trailCanvas.width = videoWidth.value
+  trailCanvas.height = videoHeight.value
+
+  trailCtx = trailCanvas.getContext('2d')
+  if (!trailCtx) return
+
+  trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+  processedEventIds.clear()
+}
+
+/**
+ * Reconstruye el rastro desde 0 hasta el tiempo `untilMs`
+ */
+function rebuildTrailUntil(untilMs: number) {
+  if (!trailCtx || !trailCanvas) return
+
+  // Limpiar
+  trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+  processedEventIds.clear()
+
+  // Procesar eventos hasta el tiempo
+  const eventsToProcess = gazeEvents.value.filter(
+    (e) => e.elapsedMsTotal <= untilMs,
+  )
+
+  eventsToProcess.forEach((event) => {
+    paintGazePoint(event)
+    processedEventIds.add(event.eventId)
+  })
+
+  drawCanvas()
+}
+
+/**
+ * Pinta un punto de mirada en el canvas de rastro
+ * con acumulación de densidad
+ */
+function paintGazePoint(event: GazeEvent) {
+  if (!trailCtx || !trailCanvas) return
+
+  const x = event.gazeX * trailCanvas.width
+  const y = event.gazeY * trailCanvas.height
+
+  // Radio del "pincel" del rastro
+  const radius = 50
+  // Opacidad por punto (acumulativa → vuelve a pasar = más intenso)
+  const opacity = 0.05
+
+  // Blend mode 'lighter' = acumulación aditiva
+  trailCtx.globalCompositeOperation = 'lighter'
+
+  const gradient = trailCtx.createRadialGradient(x, y, 0, x, y, radius)
+  gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`)
+  gradient.addColorStop(0.5, `rgba(255, 255, 255, ${opacity * 0.4})`)
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  trailCtx.fillStyle = gradient
+  trailCtx.beginPath()
+  trailCtx.arc(x, y, radius, 0, Math.PI * 2)
+  trailCtx.fill()
+
+  // Reset blend mode
+  trailCtx.globalCompositeOperation = 'source-over'
+}
+
+/**
+ * Cuando se reproduce el video, se van acumulando los eventos
+ * que aún no han sido pintados
+ */
+function accumulateEventsUpTo(untilMs: number) {
+  if (!trailCtx) return
+
+  const newEvents = gazeEvents.value.filter(
+    (e) =>
+      e.elapsedMsTotal <= untilMs &&
+      !processedEventIds.has(e.eventId),
+  )
+
+  newEvents.forEach((event) => {
+    paintGazePoint(event)
+    processedEventIds.add(event.eventId)
+  })
+
+  return newEvents.length > 0
+}
+
+// ============================================================
+// CANVAS PRINCIPAL (compone el rastro con colormap)
 // ============================================================
 function drawCanvas() {
   const canvas = canvasRef.value
-  if (!canvas) return
+  if (!canvas || !trailCanvas) return
 
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  // Limpiar
+  // 1. Acumular eventos nuevos hasta el tiempo actual
+  accumulateEventsUpTo(currentTimeMs.value)
+
+  // 2. Limpiar canvas principal
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  // Dibujar puntos cercanos (estela)
-  if (showGazePoints.value) {
-    nearbyGazePoints.value.forEach((point) => {
-      const x = point.gazeX * canvas.width
-      const y = point.gazeY * canvas.height
+  // 3. Si no se muestra el rastro, salir
+  if (!showTrail.value) return
 
-      ctx.fillStyle = `rgba(59, 130, 246, ${point.opacity})`
-      ctx.beginPath()
-      ctx.arc(x, y, 8, 0, Math.PI * 2)
-      ctx.fill()
-    })
+  // 4. Aplicar colormap al canvas de densidad y dibujarlo
+  drawColormapFromTrail(ctx)
+}
 
-    // Dibujar punto actual destacado
-    if (currentGaze.value) {
-      const x = currentGaze.value.gazeX * canvas.width
-      const y = currentGaze.value.gazeY * canvas.height
+/**
+ * Toma el canvas de densidad (trailCanvas, en escala de grises)
+ * y lo pinta con la paleta de colores en el canvas principal.
+ */
+function drawColormapFromTrail(ctx: CanvasRenderingContext2D) {
+  if (!trailCanvas || !trailCtx) return
 
-      // Halo exterior
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)'
-      ctx.beginPath()
-      ctx.arc(x, y, 24, 0, Math.PI * 2)
-      ctx.fill()
+  const width = trailCanvas.width
+  const height = trailCanvas.height
 
-      // Círculo medio
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.6)'
-      ctx.beginPath()
-      ctx.arc(x, y, 12, 0, Math.PI * 2)
-      ctx.fill()
+  // Leer pixels del canvas de densidad
+  const imageData = trailCtx.getImageData(0, 0, width, height)
+  const data = imageData.data
 
-      // Punto central
-      ctx.fillStyle = '#EF4444'
-      ctx.beginPath()
-      ctx.arc(x, y, 6, 0, Math.PI * 2)
-      ctx.fill()
+  // Encontrar densidad máxima (para normalizar)
+  let maxDensity = 0
+  for (let i = 0; i < data.length; i += 4) {
+    const density = data[i]
+    if (density > maxDensity) maxDensity = density
+  }
 
-      // Borde blanco
-      ctx.strokeStyle = 'white'
-      ctx.lineWidth = 2
-      ctx.stroke()
+  if (maxDensity === 0) return
+
+  // Aplicar colormap pixel por pixel
+  for (let i = 0; i < data.length; i += 4) {
+    const density = data[i]
+
+    if (density === 0) {
+      data[i + 3] = 0
+      continue
+    }
+
+    const intensity = density / maxDensity
+    const color = getHeatColor(intensity)
+
+    data[i] = color.r
+    data[i + 1] = color.g
+    data[i + 2] = color.b
+    // Alpha proporcional (más intenso = más opaco)
+    data[i + 3] = Math.min(220, Math.round(intensity * 220 + 40))
+  }
+
+  // Crear canvas temporal con el colormap aplicado
+  const colorCanvas = document.createElement('canvas')
+  colorCanvas.width = width
+  colorCanvas.height = height
+  const colorCtx = colorCanvas.getContext('2d')
+  if (!colorCtx) return
+
+  colorCtx.putImageData(imageData, 0, 0)
+
+  // Dibujar en el canvas principal
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.drawImage(colorCanvas, 0, 0)
+}
+
+/**
+ * Paleta colormap tipo "inferno" para el heatmap
+ */
+function getHeatColor(intensity: number): { r: number; g: number; b: number } {
+  const t = Math.max(0, Math.min(1, intensity))
+
+  if (t < 0.15) {
+    const f = t / 0.15
+    return {
+      r: Math.round(0 + f * 30),
+      g: Math.round(50 + f * 80),
+      b: Math.round(150 + f * 105),
+    }
+  } else if (t < 0.35) {
+    const f = (t - 0.15) / 0.2
+    return {
+      r: Math.round(30 + f * 20),
+      g: Math.round(130 + f * 100),
+      b: Math.round(255 - f * 30),
+    }
+  } else if (t < 0.55) {
+    const f = (t - 0.35) / 0.2
+    return {
+      r: Math.round(50 + f * 50),
+      g: Math.round(230 - f * 10),
+      b: Math.round(225 - f * 175),
+    }
+  } else if (t < 0.75) {
+    const f = (t - 0.55) / 0.2
+    return {
+      r: Math.round(100 + f * 155),
+      g: Math.round(220 + f * 25),
+      b: Math.round(50 - f * 50),
+    }
+  } else if (t < 0.9) {
+    const f = (t - 0.75) / 0.15
+    return {
+      r: 255,
+      g: Math.round(245 - f * 100),
+      b: Math.round(0 + f * 20),
+    }
+  } else {
+    const f = (t - 0.9) / 0.1
+    return {
+      r: Math.round(255 - f * 40),
+      g: Math.round(145 - f * 100),
+      b: Math.round(20 - f * 20),
     }
   }
+}
+
+/**
+ * Redibuja el rastro completo (útil cuando se cambia un toggle)
+ */
+function redrawTrail() {
+  drawCanvas()
 }
 
 // ============================================================
@@ -404,22 +575,38 @@ function getNodeName(nodeId: string): string {
 }
 
 // ============================================================
+// WATCHERS
+// ============================================================
+// Cada vez que cambia el tiempo actual → redibujar canvas
+watch(currentTimeMs, () => {
+  drawCanvas()
+})
+
+// Si cambia el toggle de rastro → redibujar
+watch(showTrail, () => {
+  drawCanvas()
+})
+
+// Si cambia la sesión → recargar y resetear
+watch(
+  () => props.sessionId,
+  async () => {
+    processedEventIds.clear()
+    if (trailCtx && trailCanvas) {
+      trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+    }
+    await loadGazeEvents()
+  },
+)
+
+// ============================================================
 // LIFECYCLE
 // ============================================================
 onMounted(async () => {
   await loadGazeEvents()
-  await nextTick()
-  drawCanvas()
-})
-
-watch(() => props.sessionId, async () => {
-  await loadGazeEvents()
 })
 
 onBeforeUnmount(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-  }
   const video = videoRef.value
   if (video) video.pause()
 })
@@ -451,6 +638,9 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+/* ============================================================
+   PUNTO ACTUAL (pequeño, sobre el rastro)
+   ============================================================ */
 .current-gaze-marker {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -459,31 +649,47 @@ onBeforeUnmount(() => {
 }
 
 .gaze-marker-inner {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #EF4444;
-  border: 3px solid white;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #EF4444;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.4),
+    0 0 12px rgba(239, 68, 68, 0.6);
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
+    box-shadow:
+      0 0 0 3px rgba(239, 68, 68, 0.4),
+      0 0 12px rgba(239, 68, 68, 0.6);
   }
   50% {
-    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.1);
+    box-shadow:
+      0 0 0 8px rgba(239, 68, 68, 0.15),
+      0 0 20px rgba(239, 68, 68, 0.8);
   }
 }
 
-.nearby-gaze-marker {
-  position: absolute;
-  width: 12px;
+/* ============================================================
+   LEYENDA
+   ============================================================ */
+.heat-legend-bar {
+  width: 180px;
   height: 12px;
-  border-radius: 50%;
-  background: #3B82F6;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    #001866 0%,
+    #1E82FF 15%,
+    #32C8FF 35%,
+    #64E6B4 55%,
+    #FFFF00 75%,
+    #FF9100 90%,
+    #DC2626 100%
+  );
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 </style>
