@@ -95,8 +95,8 @@
         v-if="showGazePoints && currentGaze"
         class="current-gaze-marker"
         :style="{
-          left: (currentGaze.x * 100) + '%',
-          top: (currentGaze.y * 100) + '%',
+          left: (currentGaze.gazeX * 100) + '%',
+          top: (currentGaze.gazeY * 100) + '%',
         }"
       >
         <div class="gaze-marker-inner" />
@@ -124,7 +124,7 @@
       :step="100"
       class="q-mt-md"
       color="primary"
-      @update:model-value="seekVideo"
+      @update:model-value="onSliderChange"
       :label-value="formatTime(currentTimeMs)"
     />
 
@@ -133,8 +133,8 @@
       <q-card flat bordered class="q-pa-sm">
         <div class="text-caption text-grey-7">Posición de mirada actual</div>
         <div class="text-body2 font-mono">
-          X: {{ (currentGaze.x * 100).toFixed(1) }}% |
-          Y: {{ (currentGaze.y * 100).toFixed(1) }}%
+          X: {{ (currentGaze.gazeX * 100).toFixed(1) }}% |
+          Y: {{ (currentGaze.gazeY * 100).toFixed(1) }}%
         </div>
       </q-card>
 
@@ -311,9 +311,18 @@ function restart() {
   drawCanvas()
 }
 
-function onSpeedChange(value: number) {
+function onSpeedChange(value: number | null) {
+  if (value === null) return
   const video = videoRef.value
   if (video) video.playbackRate = value
+}
+
+/**
+ * Handler del slider que acepta `number | null`
+ */
+function onSliderChange(value: number | null) {
+  if (value === null) return
+  seekVideo(value)
 }
 
 function seekVideo(ms: number) {
