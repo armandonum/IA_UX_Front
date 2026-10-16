@@ -1,6 +1,9 @@
+<!-- components/docente/ReviewersPanel.vue -->
 <template>
   <div>
-    <div class="text-h6 text-weight-bold text-grey-9 q-mb-md">Asignar evaluadores</div>
+    <div class="text-h6 text-weight-bold text-grey-9 q-mb-md">
+      Asignar Coordinadores
+    </div>
 
     <!-- Indicador de semestre -->
     <div class="row q-col-gutter-md q-mb-lg">
@@ -38,83 +41,101 @@
     </div>
 
     <!-- Indicador de semestre no seleccionado -->
-    <q-banner v-if="!semesterId" rounded class="bg-orange-1 text-orange-10 q-mb-md">
+    <q-banner
+      v-if="!semesterId"
+      rounded
+      class="bg-orange-1 text-orange-10 q-mb-md"
+    >
       <template #avatar>
         <q-icon name="warning" />
       </template>
-      Selecciona un semestre para ver y asignar evaluadores.
+      Selecciona un semestre para ver y asignar coordinadores.
     </q-banner>
 
-    <q-card flat bordered class="q-pa-md" v-if="selectedProject && semesterId">
-      <div class="text-subtitle1 text-weight-medium q-mb-sm">Asignar evaluador</div>
+    <q-card v-if="selectedProject && semesterId" flat bordered class="q-pa-md">
+      <div class="text-subtitle1 text-weight-medium q-mb-sm">
+        Asignar coordinador
+      </div>
       <div class="text-caption text-grey-6 q-mb-sm">
-        Estudiantes disponibles en el semestre: {{ availableStudents.length }}
+        <q-icon name="info" size="14px" class="q-mr-xs" />
+        Solo se muestran usuarios con rol de <strong>Coordinador</strong>
+        disponibles: {{ availableCoordinators.length }}
       </div>
 
-      <!-- ✅ Formulario corregido -->
-      <q-form @submit.prevent="onAssign" ref="assignFormRef" class="row q-col-gutter-md items-end">
-        <div class="col-12 col-md-5">
+      <!-- Formulario simplificado: solo usuario -->
+      <q-form
+        ref="assignFormRef"
+        class="row q-col-gutter-md items-end"
+        @submit.prevent="onAssign"
+      >
+        <div class="col-12 col-md-8">
           <q-select
+            ref="userSelectRef"
             v-model="form.userId"
             filled
-            :options="availableStudents"
+            :options="availableCoordinators"
             option-label="display_name"
             option-value="user_id"
-            label="Usuario"
+            label="Coordinador"
             emit-value
             map-options
             :rules="[required]"
-            :loading="loadingStudents"
-            ref="userSelectRef"
+            :loading="loadingCoordinators"
             lazy-rules
+            use-input
+            input-debounce="300"
+            @filter="filterCoordinators"
           >
             <template v-slot:prepend>
-              <q-icon name="person" color="primary" />
+              <q-icon name="supervisor_account" color="primary" />
             </template>
+
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section avatar>
+                  <q-avatar color="primary" text-color="white" size="32px">
+                    {{ getInitials(scope.opt.display_name) }}
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.display_name }}</q-item-label>
+                  <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+
             <template v-slot:no-option>
               <div class="text-center q-pa-md text-grey-6">
-                No hay estudiantes disponibles en este semestre
+                <q-icon name="person_off" size="24px" />
+                <div>No hay coordinadores disponibles</div>
+                <div class="text-caption">
+                  Los usuarios deben tener el rol "Coordinador" asignado
+                </div>
               </div>
             </template>
           </q-select>
         </div>
-        <div class="col-12 col-md-5">
-          <q-select
-            v-model="form.roleId"
-            filled
-            :options="reviewerRoleOptions"
-            option-label="name"
-            option-value="role_id"
-            label="Rol"
-            emit-value
-            map-options
-            :rules="[required]"
-            ref="roleSelectRef"
-            lazy-rules
-          >
-            <template v-slot:prepend>
-              <q-icon name="badge" color="primary" />
-            </template>
-          </q-select>
-        </div>
-        <div class="col-12 col-md-2">
-          <q-btn 
-            unelevated 
-            color="primary" 
-            type="submit" 
-            label="Asignar" 
-            class="full-width" 
-            :loading="assigning" 
+
+        <div class="col-12 col-md-4">
+          <q-btn
+            unelevated
+            color="primary"
+            type="submit"
+            icon="person_add"
+            label="Asignar"
+            class="full-width"
+            :loading="assigning"
+            :disable="!form.userId"
           />
         </div>
       </q-form>
 
-      <!-- Tabla de evaluadores asignados -->
+      <!-- Tabla de coordinadores asignados -->
       <div class="q-mt-lg">
         <div class="text-subtitle1 text-weight-medium q-mb-sm">
-          Evaluadores asignados ({{ assignedReviewers.length }})
+          Coordinadores asignados ({{ assignedReviewers.length }})
         </div>
-        
+
         <q-table
           :rows="assignedReviewers"
           :columns="columns"
@@ -124,6 +145,42 @@
           :loading="loadingReviewers"
           v-model:pagination="pagination"
         >
+          <template v-slot:body-cell-display_name="props">
+            <q-td :props="props">
+              <div class="row items-center no-wrap q-gutter-xs">
+                <q-avatar color="primary" text-color="white" size="32px">
+                  {{ getInitials(getUserName(props.row.userId)) }}
+                </q-avatar>
+                <div class="column">
+                  <div class="text-body2 text-weight-medium">
+                    {{ getUserName(props.row.userId) }}
+                  </div>
+                  <div class="text-caption text-grey-6">
+                    {{ getUserEmail(props.row.userId) }}
+                  </div>
+                </div>
+              </div>
+            </q-td>
+          </template>
+
+          <template v-slot:body-cell-role_name="props">
+            <q-td :props="props">
+              <q-badge color="primary" text-color="white">
+                {{ getRoleLabel(props.row.roleId) }}
+              </q-badge>
+            </q-td>
+          </template>
+
+          <template v-slot:body-cell-assigned_at="props">
+            <q-td :props="props">
+              {{
+                props.row.assignedAt
+                  ? new Date(props.row.assignedAt).toLocaleDateString('es-ES')
+                  : '—'
+              }}
+            </q-td>
+          </template>
+
           <template v-slot:body-cell-actions="props">
             <q-td :props="props">
               <q-btn
@@ -133,23 +190,28 @@
                 color="negative"
                 icon="delete"
                 @click="onDeleteReviewer(props.row.projectReviewerId)"
-              />
+              >
+                <q-tooltip>Quitar asignación</q-tooltip>
+              </q-btn>
             </q-td>
           </template>
 
           <template v-slot:no-data>
             <div class="text-grey-6 q-pa-md text-center">
-              <q-icon name="people" size="32px" />
-              <div>No hay evaluadores asignados a este proyecto</div>
+              <q-icon name="group_off" size="32px" />
+              <div>No hay coordinadores asignados a este proyecto</div>
             </div>
           </template>
         </q-table>
       </div>
     </q-card>
 
-    <div v-else-if="semesterId && !selectedProject" class="text-grey-6 q-mt-md">
+    <div
+      v-else-if="semesterId && !selectedProject"
+      class="text-grey-6 q-mt-md"
+    >
       <q-icon name="info" size="20px" />
-      Selecciona un proyecto para ver y asignar sus evaluadores.
+      Selecciona un proyecto para ver y asignar sus coordinadores.
     </div>
   </div>
 </template>
@@ -168,141 +230,251 @@ const $q = useQuasar()
 const store = useDocenteStore()
 const semesterStore = useSemesterStore()
 
-// ✅ Referencias a los campos
+// ============================================================
+// REFS
+// ============================================================
 const assignFormRef = ref<any>(null)
 const userSelectRef = ref<any>(null)
-const roleSelectRef = ref<any>(null)
 
-// Estado
+// ============================================================
+// STATE
+// ============================================================
 const selectedProject = ref<string | null>(null)
 const assigning = ref(false)
 const loadingReviewers = ref(false)
 const loadingProjects = ref(false)
-const loadingStudents = ref(false)
+const loadingCoordinators = ref(false)
 const assignedReviewers = ref<any[]>([])
+
+// Lista completa y filtrada de coordinadores
+const allCoordinators = ref<any[]>([])
+const filterText = ref('')
+
 const pagination = ref({
-  rowsPerPage: 10
+  rowsPerPage: 10,
 })
 
 const form = reactive({
   userId: '',
-  roleId: ''
 })
 
 const required = (val: string) => !!val || 'Campo obligatorio'
 
-// Filtrar proyectos por semestre
+// ============================================================
+// COMPUTED
+// ============================================================
 const filteredProjects = computed(() => {
   if (!props.semesterId) return []
-  return store.projects.filter(p => p.semesterId === props.semesterId)
+  return store.projects.filter((p) => p.semesterId === props.semesterId)
 })
 
-// Obtener nombre del semestre
 const semesterName = computed(() => {
-  const sem = semesterStore.semesters.find(s => s.semesterId === props.semesterId)
+  const sem = semesterStore.semesters.find(
+    (s) => s.semesterId === props.semesterId,
+  )
   return sem ? `${sem.name} (${sem.code})` : ''
 })
 
-// Filtrar estudiantes por semestre
-const availableStudents = computed(() => {
-  if (!props.semesterId) return []
-  
-  const studentIds = semesterStore.semesterStudents.map(ss => ss.userId)
-  const assignedIds = assignedReviewers.value.map(r => r.userId)
-  
-  return store.students.filter((s: any) => 
-    studentIds.includes(s.user_id) && !assignedIds.includes(s.user_id)
-  )
-})
+/**
+ * Coordinadores disponibles para asignar:
+ * - Tienen rol "Coordinador" en sus roles
+ * - NO están ya asignados a este proyecto
+ */
+const availableCoordinators = computed(() => {
+  const assignedIds = assignedReviewers.value.map((r) => r.userId)
 
-// Opciones de roles incluyendo Coordinador
-const reviewerRoleOptions = computed(() => {
-  const allRoles = store.roles.filter((r: any) => 
-    r.name.toLowerCase().includes("experto ux") || 
-    r.name.toLowerCase().includes("estudiante") ||
-    r.name.toLowerCase().includes("coordinador")
+  // Filtrar coordinadores que NO están ya asignados
+  let list = allCoordinators.value.filter(
+    (u) => !assignedIds.includes(u.user_id),
   )
-  
-  if (allRoles.length === 0) {
-    return [
-      { role_id: 'coordinator', name: 'Coordinador' },
-      { role_id: 'evaluator', name: 'Evaluador' },
-      { role_id: 'supervisor', name: 'Supervisor' },
-      { role_id: 'observer', name: 'Observador' }
-    ]
+
+  // Aplicar filtro de texto si hay
+  if (filterText.value.trim()) {
+    const needle = filterText.value.toLowerCase().trim()
+    list = list.filter(
+      (u) =>
+        u.display_name?.toLowerCase().includes(needle) ||
+        u.email?.toLowerCase().includes(needle),
+    )
   }
-  
-  return allRoles
+
+  return list.sort((a, b) =>
+    (a.display_name || '').localeCompare(b.display_name || ''),
+  )
 })
 
-// Columnas de la tabla
+// ============================================================
+// COLUMNS
+// ============================================================
 const columns = [
   {
     name: 'display_name',
-    label: 'Evaluador',
-    field: (row: any) => {
-      const user = store.students.find(u => u.user_id === row.userId)
-      return user?.display_name || 'Usuario'
-    },
+    label: 'Coordinador',
+    field: 'display_name',
     align: 'left' as const,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'email',
     label: 'Email',
-    field: (row: any) => {
-      const user = store.students.find(u => u.user_id === row.userId)
-      return user?.email || ''
-    },
+    field: (row: any) => getUserEmail(row.userId),
     align: 'left' as const,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'role_name',
     label: 'Rol',
-    field: (row: any) => {
-      const role = store.roles.find(role => role.role_id === row.roleId)
-      if (!role) {
-        const found = reviewerRoleOptions.value.find(r => r.role_id === row.roleId)
-        return found?.name || 'Revisor'
-      }
-      return role?.name || 'Revisor'
-    },
+    field: (row: any) => getRoleLabel(row.roleId),
     align: 'left' as const,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'assigned_at',
     label: 'Asignado el',
-    field: (row: any) => row.assignedAt ? new Date(row.assignedAt).toLocaleDateString('es-ES') : '',
+    field: 'assignedAt',
     align: 'left' as const,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'actions',
     label: 'Acciones',
     field: 'actions',
-    align: 'center' as const
-  }
+    align: 'center' as const,
+  },
 ]
 
-// Cargar evaluadores del proyecto seleccionado
+// ============================================================
+// HELPERS
+// ============================================================
+function getInitials(name: string): string {
+  if (!name) return '?'
+  const parts = name.trim().split(' ')
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  }
+  return name.substring(0, 2).toUpperCase()
+}
+
+function getUserName(userId: string): string {
+  const user = allCoordinators.value.find((u) => u.user_id === userId)
+  if (user?.display_name) return user.display_name
+
+  // Fallback: buscar en todos los students
+  const fallback = store.students.find((u) => u.user_id === userId)
+  return fallback?.display_name || 'Usuario'
+}
+
+function getUserEmail(userId: string): string {
+  const user = allCoordinators.value.find((u) => u.user_id === userId)
+  if (user?.email) return user.email
+
+  const fallback = store.students.find((u) => u.user_id === userId)
+  return fallback?.email || ''
+}
+
+function getRoleLabel(roleId: any): string {
+  if (!roleId) return 'Coordinador'
+
+  // Si viene como objeto
+  if (typeof roleId === 'object' && roleId.name) return roleId.name
+
+  // Buscar en roles del store
+  const role = store.roles.find(
+    (r) => String(r.role_id) === String(roleId),
+  )
+  if (role?.name) return role.name
+
+  // Fallback: buscar en los roles del sistema
+  return 'Coordinador'
+}
+
+/**
+ * Filtra los coordinadores cuando el usuario escribe en el select
+ */
+function filterCoordinators(val: string, update: any) {
+  filterText.value = val
+
+  update(() => {
+    // La computed `availableCoordinators` ya aplica el filtro
+  })
+}
+
+// ============================================================
+// CARGA DE DATOS
+// ============================================================
+
+/**
+ * Carga TODOS los usuarios con rol "Coordinador"
+ */
+async function loadAllCoordinators() {
+  loadingCoordinators.value = true
+
+  try {
+    // Asegurarse de que tenemos los usuarios cargados
+    if (store.students.length === 0) {
+      await store.fetchStudents()
+    }
+
+    // Asegurarse de que tenemos los roles cargados
+    if (store.roles.length === 0) {
+      await store.fetchRoles()
+    }
+
+    // Encontrar el role_id de "Coordinador"
+    const coordinatorRole = store.roles.find((r: any) =>
+      r.name?.toLowerCase().includes('coordinador'),
+    )
+
+    if (!coordinatorRole) {
+      console.warn('⚠️ No se encontró el rol "Coordinador" en el sistema')
+      allCoordinators.value = []
+      return
+    }
+
+    // Filtrar usuarios que tengan el rol "Coordinador"
+    allCoordinators.value = store.students.filter((user: any) => {
+      if (!user.roles || !Array.isArray(user.roles)) return false
+      return user.roles.some(
+        (r: any) =>
+          String(r.role_id) === String(coordinatorRole.role_id) ||
+          r.name?.toLowerCase().includes('coordinador'),
+      )
+    })
+
+    console.log(`✅ ${allCoordinators.value.length} coordinadores cargados`)
+  } catch (error: any) {
+    console.error('Error cargando coordinadores:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Error al cargar los coordinadores',
+    })
+  } finally {
+    loadingCoordinators.value = false
+  }
+}
+
 async function loadProjectReviewers(projectId: string) {
   loadingReviewers.value = true
   try {
     const response = await store.fetchProjectReviewers(projectId)
+
+    // Mostrar SOLO los que tienen rol de Coordinador
+    // (por si hay datos viejos con otros roles)
     assignedReviewers.value = response || []
   } catch (error: any) {
     console.error('Error loading reviewers:', error)
     $q.notify({
       type: 'negative',
-      message: error.message || 'No se pudieron cargar los evaluadores'
+      message: error.message || 'No se pudieron cargar los coordinadores',
     })
   } finally {
     loadingReviewers.value = false
   }
 }
 
+// ============================================================
+// ACCIONES
+// ============================================================
 async function onProjectChange(projectId: string | null) {
   if (projectId) {
     await loadProjectReviewers(projectId)
@@ -311,24 +483,22 @@ async function onProjectChange(projectId: string | null) {
   }
 }
 
-// ✅ Función para resetear el formulario SIN validaciones
 function resetForm() {
   form.userId = ''
-  form.roleId = ''
-  
-  // ✅ Resetear validaciones usando nextTick para asegurar que el DOM se actualice
+  filterText.value = ''
+
   nextTick(() => {
-    if (userSelectRef.value && typeof userSelectRef.value.resetValidation === 'function') {
+    if (
+      userSelectRef.value &&
+      typeof userSelectRef.value.resetValidation === 'function'
+    ) {
       userSelectRef.value.resetValidation()
-      console.log('✅ userSelectRef resetValidation ejecutado')
     }
-    if (roleSelectRef.value && typeof roleSelectRef.value.resetValidation === 'function') {
-      roleSelectRef.value.resetValidation()
-      console.log('✅ roleSelectRef resetValidation ejecutado')
-    }
-    if (assignFormRef.value && typeof assignFormRef.value.resetValidation === 'function') {
+    if (
+      assignFormRef.value &&
+      typeof assignFormRef.value.resetValidation === 'function'
+    ) {
       assignFormRef.value.resetValidation()
-      console.log('✅ assignFormRef resetValidation ejecutado')
     }
   })
 }
@@ -337,50 +507,52 @@ async function onAssign() {
   if (!selectedProject.value) {
     $q.notify({
       type: 'warning',
-      message: 'Selecciona un proyecto primero'
+      message: 'Selecciona un proyecto primero',
     })
     return
   }
-  
+
   if (!form.userId) {
     $q.notify({
       type: 'warning',
-      message: 'Selecciona un usuario'
+      message: 'Selecciona un coordinador',
     })
     return
   }
-  
-  if (!form.roleId) {
+
+  // Encontrar el role_id de "Coordinador"
+  const coordinatorRole = store.roles.find((r: any) =>
+    r.name?.toLowerCase().includes('coordinador'),
+  )
+
+  if (!coordinatorRole) {
     $q.notify({
-      type: 'warning',
-      message: 'Selecciona un rol'
+      type: 'negative',
+      message: 'No se encontró el rol "Coordinador" en el sistema',
     })
     return
   }
-  
+
   assigning.value = true
   try {
     await store.assignReviewer({
       projectId: selectedProject.value,
       userId: form.userId,
-      roleId: form.roleId
+      roleId: coordinatorRole.role_id,
     })
-    
-    // Recargar la lista
+
     await loadProjectReviewers(selectedProject.value)
-    
-    // ✅ Resetear el formulario
     resetForm()
-    
+
     $q.notify({
       type: 'positive',
-      message: 'Evaluador asignado correctamente'
+      message: '✅ Coordinador asignado correctamente',
     })
   } catch (error: any) {
     console.error('Error assigning reviewer:', error)
     $q.notify({
       type: 'negative',
-      message: error.message || 'No se pudo asignar el evaluador'
+      message: error.message || 'No se pudo asignar el coordinador',
     })
   } finally {
     assigning.value = false
@@ -389,83 +561,97 @@ async function onAssign() {
 
 async function onDeleteReviewer(reviewerId: string) {
   if (!selectedProject.value) return
-  
-  const confirm = await new Promise((resolve) => {
+
+  const confirm = await new Promise<boolean>((resolve) => {
     $q.dialog({
       title: 'Confirmar',
-      message: '¿Estás seguro de que deseas eliminar este evaluador?',
+      message: '¿Estás seguro de que deseas quitar a este coordinador?',
       cancel: true,
-      persistent: true
-    }).onOk(() => resolve(true))
+      persistent: true,
+    })
+      .onOk(() => resolve(true))
       .onCancel(() => resolve(false))
   })
-  
+
   if (!confirm) return
-  
+
   try {
     await store.deleteReviewer(reviewerId)
     await loadProjectReviewers(selectedProject.value)
-    
+
     $q.notify({
       type: 'positive',
-      message: 'Evaluador eliminado correctamente'
+      message: 'Coordinador removido correctamente',
     })
   } catch (error: any) {
     console.error('Error deleting reviewer:', error)
     $q.notify({
       type: 'negative',
-      message: error.message || 'No se pudo eliminar el evaluador'
+      message: error.message || 'No se pudo remover el coordinador',
     })
   }
 }
 
-// Cargar datos iniciales
+// ============================================================
+// CARGA INICIAL
+// ============================================================
 async function loadInitialData() {
   if (!props.semesterId) {
     console.log('⏳ Esperando semestre...')
     return
   }
-  
+
   try {
     loadingProjects.value = true
-    loadingStudents.value = true
-    
+
     console.log('📡 Cargando datos para semestre:', props.semesterId)
-    
+
+    // 1. Cargar proyectos del semestre
     await store.fetchProjectsBySemester(props.semesterId)
-    await semesterStore.getStudentsBySemester(props.semesterId)
+
+    // 2. Cargar TODOS los estudiantes (necesario para saber sus roles)
     await store.fetchStudents()
+
+    // 3. Cargar TODOS los roles
     await store.fetchRoles()
-    
+
+    // 4. Filtrar y guardar solo los coordinadores
+    await loadAllCoordinators()
+
     console.log('✅ Proyectos filtrados:', filteredProjects.value.length)
-    console.log('✅ Estudiantes disponibles:', availableStudents.value.length)
-    
+    console.log('✅ Coordinadores disponibles:', allCoordinators.value.length)
+
+    // 5. Auto-seleccionar el primer proyecto
     if (filteredProjects.value.length > 0 && !selectedProject.value) {
       selectedProject.value = filteredProjects.value[0].projectId
       await loadProjectReviewers(selectedProject.value)
     }
-    
   } catch (error: any) {
     console.error('Error loading initial data:', error)
     $q.notify({
       type: 'negative',
-      message: error.message || 'No se pudo cargar la información inicial'
+      message: error.message || 'No se pudo cargar la información inicial',
     })
   } finally {
     loadingProjects.value = false
-    loadingStudents.value = false
   }
 }
 
-// Watch para recargar si el semestre cambia
-watch(() => props.semesterId, (newVal) => {
-  if (newVal) {
-    selectedProject.value = null
-    assignedReviewers.value = []
-    resetForm()
-    loadInitialData()
-  }
-}, { immediate: true })
+// ============================================================
+// WATCHERS & LIFECYCLE
+// ============================================================
+watch(
+  () => props.semesterId,
+  (newVal) => {
+    if (newVal) {
+      selectedProject.value = null
+      assignedReviewers.value = []
+      resetForm()
+      loadInitialData()
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   if (props.semesterId) {

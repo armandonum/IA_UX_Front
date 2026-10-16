@@ -41,7 +41,7 @@ const routes: RouteRecordRaw[] = [
         path: 'users',
         name: 'users',
         component: () => import('@/views/roles/coordinador/UsersManagementView.vue'),
-        meta: { roles: ['Administrador', 'Coordinador'] as RoleName[] },
+        meta: { roles: ['Administrador', 'Coordinador', 'Docente'] as RoleName[] },
       },
 
       // ── Roles (solo admin) ────────────────────────────────────────────────
@@ -61,13 +61,13 @@ const routes: RouteRecordRaw[] = [
         path: 'Coordinador',
         name: 'Coordinador',
         component: () => import('@/views/roles/coordinador/CoordinadorView.vue'),
-        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+        meta: { roles: ['Coordinador', 'Administrador', 'Docente'] as RoleName[] },
       },
       {
         path: 'Coordinador/Projects',
         name: 'Coordinadorprojects',
         component: () => import('@/views/roles/coordinador/ProjectView.vue'),
-        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+        meta: { roles: ['Coordinador', 'Administrador', 'Docente'] as RoleName[] },
       },
 
       // Método Heurístico — IMPORTANTE: las rutas con ID van DESPUÉS de la lista
@@ -75,19 +75,19 @@ const routes: RouteRecordRaw[] = [
         path: 'Coordinador/Heuristico',
         name: 'CoordinadorHeuristico',
         component: () => import('@/views/roles/coordinador/heuristic/HeuristicCoordinatorView.vue'),
-        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+        meta: { roles: ['Coordinador', 'Administrador', 'Docente'] as RoleName[] },
       },
       {
         path: 'Coordinador/Heuristico/:evaluationId',
         name: 'CoordinadorHeuristicoDetail',
         component: () => import('@/views/roles/coordinador/heuristic/HeuristicEvaluationDetailView.vue'),
-        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+        meta: { roles: ['Coordinador', 'Administrador', 'Docente'] as RoleName[] },
       },
       {
         path: 'Coordinador/Heuristico/:evaluationId/sesion/:sessionId',
         name: 'CoordinadorHeuristicoSessionDetail',
         component: () => import('@/views/roles/coordinador/heuristic/HeuristicSessionDetailView.vue'),
-        meta: { roles: ['Coordinador', 'Administrador'] as RoleName[] },
+        meta: { roles: ['Coordinador', 'Administrador', 'Docente'] as RoleName[] },
       },
 
       // ── Docente ───────────────────────────────────────────────────────────
@@ -188,37 +188,8 @@ const routes: RouteRecordRaw[] = [
   },
 },
 
-      // ── Moderador ─────────────────────────────────────────────────────────
-      {
-        path: 'moderador',
-        name: 'moderador',
-        component: () => import('@/views/roles/ModeradorView.vue'),
-        meta: { roles: ['moderador', 'Administrador'] as RoleName[] },
-      },
+    
 
-      // ── Observador ────────────────────────────────────────────────────────
-      {
-        path: 'observador',
-        name: 'observador',
-        component: () => import('@/views/roles/ObservadorView.vue'),
-        meta: { roles: ['observador', 'Administrador'] as RoleName[] },
-      },
-
-      // ── Especialista IA ───────────────────────────────────────────────────
-      {
-        path: 'ia',
-        name: 'ia',
-        component: () => import('@/views/roles/EspecialistaIAView.vue'),
-        meta: { roles: ['especialista IA', 'Administrador'] as RoleName[] },
-      },
-
-      // ── Responsable Ético ─────────────────────────────────────────────────
-      {
-        path: 'etico',
-        name: 'etico',
-        component: () => import('@/views/roles/ResponsableEticoView.vue'),
-        meta: { roles: ['responsable ético', 'Administrador'] as RoleName[] },
-      },
 
       // ── Perfil ────────────────────────────────────────────────────────────
       {

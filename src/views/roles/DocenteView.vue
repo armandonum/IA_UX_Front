@@ -8,7 +8,7 @@
           <div>
             <div class="text-h5 text-weight-bold text-grey-9">Panel del docente</div>
             <div class="text-body2 text-grey-6">
-              Gestiona estudiantes, proyectos de Figma, revisores, tareas y flujos de evaluación.
+              Gestiona estudiantes, proyectos de Figma, coordinadores, tareas y flujos de evaluación.
             </div>
           </div>
 
@@ -44,7 +44,7 @@
                   <q-btn flat dense color="primary" label="Crear primero" @click="openCreateSemesterDialog" />
                 </div>
               </template>
-            </q-select>
+            </q-select> 
 
             <q-badge
               v-if="selectedSemester"
@@ -68,7 +68,7 @@
         >
           <q-tab name="estudiantes" icon="group" label="Estudiantes" />
           <q-tab name="proyectos" icon="dashboard" label="Proyectos" />
-          <q-tab name="revisores" icon="fact_check" label="Revisores" />
+          <q-tab name="coordinadores" icon="fact_check" label="Coordinadores" />
           <q-tab name="tareas" icon="assignment" label="Tareas" />
           <q-tab name="flujos" icon="alt_route" label="Flujos" />
           <q-tab name="questionarios" icon="fact_check" label="Cuestionarios" />
@@ -85,7 +85,7 @@
             <ProjectsPanel :semester-id="selectedSemesterId" />
           </q-tab-panel>
 
-          <q-tab-panel name="revisores">
+          <q-tab-panel name="coordinadores">
             <ReviewersPanel :semester-id="selectedSemesterId" />
           </q-tab-panel>
 

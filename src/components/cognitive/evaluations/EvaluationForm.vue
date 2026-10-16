@@ -50,16 +50,32 @@
               min="1"
             />
           </div>
+
           <div class="col-6">
-       <div class="col-6">
-  <q-input
-    :model-value="props.currentUserName || 'Sin asignar'"
-    label="Supervisor"
-    filled
-    dense
-    readonly
-  />
-</div>
+            <!-- Docente: select de supervisores (coordinadores + docentes) -->
+            <q-select
+              v-if="isDocente"
+              v-model="form.supervisorId"
+              label="Supervisor"
+              filled
+              dense
+              :options="supervisorOptions"
+              option-label="label"
+              option-value="value"
+              emit-value
+              map-options
+              :rules="[v => !!v || 'Selecciona un supervisor']"
+            />
+
+            <!-- Otros roles: solo lectura -->
+            <q-input
+              v-else
+              :model-value="props.currentUserName || 'Sin asignar'"
+              label="Supervisor"
+              filled
+              dense
+              readonly
+            />
           </div>
         </div>
 
@@ -92,6 +108,7 @@
     </q-card>
   </q-dialog>
 </template>
+
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 
@@ -101,6 +118,8 @@ const props = defineProps<{
   projects: any[]
   currentUserId?: string
   currentUserName?: string
+  currentUserRole?: string
+  supervisorOptions?: { label: string; value: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -115,6 +134,14 @@ const visible = computed({
 
 const loading = ref(false)
 const isEdit = computed(() => !!props.evaluation)
+
+// Detectar si el usuario autenticado es Docente
+const isDocente = computed(() => {
+  return String(props.currentUserRole || '').trim() === 'Docente';
+});
+
+// Opciones de supervisores (coordinadores + docentes)
+const supervisorOptions = computed(() => props.supervisorOptions || [])
 
 const form = ref({
   name: '',
@@ -138,24 +165,25 @@ const resetForm = () => {
   }
 }
 
-
-
-watch(() => props.evaluation, (val) => {
-  if (val) {
-    form.value = {
-      name: val.name || '',
-      description: val.description || '',
-      projectId: val.projectId || '',
-      supervisorId: props.currentUserId || '',   
-      maxDurationMinutes: val.maxDurationMinutes || 20,
-      targetUserDescription: val.targetUserDescription || '',
-      systemDescription: val.systemDescription || '',
+watch(
+  () => props.evaluation,
+  (val) => {
+    if (val) {
+      form.value = {
+        name: val.name || '',
+        description: val.description || '',
+        projectId: val.projectId || '',
+        supervisorId: val.supervisorId || props.currentUserId || '',
+        maxDurationMinutes: val.maxDurationMinutes || 20,
+        targetUserDescription: val.targetUserDescription || '',
+        systemDescription: val.systemDescription || '',
+      }
+    } else {
+      resetForm()
     }
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
-
+  },
+  { immediate: true }
+)
 
 const close = () => {
   visible.value = false

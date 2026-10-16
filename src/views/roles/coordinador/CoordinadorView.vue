@@ -29,7 +29,7 @@
       </div>
     </div>
 
-      <!-- Step 1: Seleccionar Proyecto -->
+    <!-- Step 1: Seleccionar Proyecto -->
     <q-card>
       <q-card-section>
         <div class="flex items-center gap-3">
@@ -54,10 +54,7 @@
         <q-spinner color="primary" size="40px" />
       </q-card-section>
 
-      <q-card-section
-        v-else-if="projects.length === 0"
-        class="text-center py-8"
-      >
+      <q-card-section v-else-if="projects.length === 0" class="text-center py-8">
         <q-icon name="folder_open" size="48px" color="grey-6" />
         <p class="text-grey-6 mt-2">No tienes proyectos asignados</p>
         <p class="text-sm text-grey-5 mt-1">
@@ -111,9 +108,8 @@
                 <q-badge color="secondary" class="text-xs">
                   {{ getEvaluationCount(project.projectId) }} evaluaciones
                 </q-badge>
-                <!-- Badge de rol del usuario en el proyecto -->
-                <q-badge 
-                  :color="getRoleColor(project.userRole)" 
+                <q-badge
+                  :color="getRoleColor(project.userRole)"
                   class="text-xs"
                 >
                   {{ project.userRole || 'Revisor' }}
@@ -126,332 +122,265 @@
     </q-card>
 
     <!-- Step 2: Gestionar Evaluación -->
-<template v-if="selectedProjectId">
-  <q-card flat bordered class="border-primary">
+    <template v-if="selectedProjectId">
+      <q-card flat bordered class="border-primary">
+        <!-- Header -->
+        <q-card-section>
+          <div class="row items-center q-gutter-md">
+            <q-icon name="assignment" color="primary" size="28px" />
 
-    <!-- Header -->
-    <q-card-section>
-      <div class="row items-center q-gutter-md">
-
-        <q-icon
-          name="assignment"
-          color="primary"
-          size="28px"
-        />
-
-        <div>
-          <div class="text-caption text-grey-6">
-            Paso 2
-          </div>
-
-          <div class="text-h6 text-weight-medium">
-            Gestionar Evaluación
-          </div>
-        </div>
-
-        <q-space />
-
-        <q-btn
-          v-if="canCreateEvaluation"
-          color="primary"
-          icon="add"
-          label="Nueva Evaluación"
-          unelevated
-          @click="showEvaluationDialog = true"
-        />
-
-        <q-btn
-          v-if="currentEvaluation"
-          color="warning"
-          icon="edit"
-          flat
-          label="Editar"
-          @click="showEditEvaluationDialog = true"
-        />
-
-        <q-btn
-          v-if="currentEvaluation"
-          color="negative"
-          icon="delete"
-          flat
-          label="Eliminar"
-          @click="confirmDelete"
-        />
-
-      </div>
-    </q-card-section>
-
-    <q-separator />
-
-    <q-card-section>
-
-      <!-- Lista de Evaluaciones -->
-      <div v-if="!currentEvaluation">
-        <EvaluationList
-          :evaluations="evaluations"
-          @select="loadEvaluation"
-          @create="showEvaluationDialog = true"
-          :can-create="canCreateEvaluation"
-        />
-      </div>
-
-      <!-- Detalle de Evaluación -->
-      <div v-else>
-
-        <!-- Información de la evaluación -->
-        <q-card
-          flat
-          bordered
-          class="border-primary"
-        >
-          <q-card-section>
-            <div class="row items-center q-col-gutter-lg">
-
-              <!-- Nombre -->
-              <div class="col-12 col-sm-6 col-md-3">
-                <div class="text-caption text-grey-6">
-                  Nombre
-                </div>
-
-                <div class="text-subtitle1 text-weight-medium">
-                  {{ currentEvaluation.name }}
-                </div>
+            <div>
+              <div class="text-caption text-grey-6">Paso 2</div>
+              <div class="text-h6 text-weight-medium">
+                Gestionar Evaluación
               </div>
-
-              <!-- Estado -->
-              <div class="col-12 col-sm-6 col-md-2">
-                <div class="text-caption text-grey-6 q-mb-xs">
-                  Estado
-                </div>
-
-                <q-badge
-                  :color="getStatusColor(currentEvaluation.status)"
-                  class="q-px-sm q-py-xs"
-                >
-                  {{ getStatusLabel(currentEvaluation.status) }}
-                </q-badge>
-              </div>
-
-              <!-- Duración -->
-              <div class="col-12 col-sm-6 col-md-2">
-                <div class="text-caption text-grey-6">
-                  Duración
-                </div>
-
-                <div class="text-subtitle1">
-                  {{ currentEvaluation.maxDurationMinutes }} min
-                </div>
-              </div>
-
-              <!-- Progreso -->
-              <div class="col-12 col-sm-6 col-md-2">
-                <div class="text-caption text-grey-6 q-mb-xs">
-                  Progreso
-                </div>
-
-                <div class="row items-center q-gutter-sm">
-
-                  <q-circular-progress
-                    :value="evaluationProgress"
-                    size="42px"
-                    :color="getProgressColor(evaluationProgress)"
-                    track-color="grey-3"
-                    show-value
-                    font-size="10px"
-                  />
-
-                  <span class="text-weight-medium">
-                    {{ evaluationProgress }}%
-                  </span>
-
-                </div>
-              </div>
-
-              <q-space />
-
-              <!-- Acciones -->
-              <div class="col-12 col-md-auto">
-                <div class="row q-gutter-sm">
-
-                  <q-btn
-                    v-if="canStart"
-                    color="positive"
-                    icon="play_arrow"
-                    label="Iniciar"
-                    unelevated
-                    @click="startEvaluation"
-                    :loading="loading"
-                  />
-
-                  <q-btn
-                    v-if="canComplete"
-                    color="primary"
-                    icon="check_circle"
-                    label="Completar"
-                    unelevated
-                    @click="completeEvaluation"
-                    :loading="loading"
-                  />
-
-                </div>
-              </div>
-
             </div>
-          </q-card-section>
-        </q-card>
 
-        <!-- Tabs -->
-        <q-tabs
-          v-model="tab"
-          class="bg-primary text-white q-mt-md"
-          active-color="white"
-          indicator-color="accent"
-          align="left"
-          no-caps
-        >
-          <q-tab
-            name="dashboard"
-            icon="dashboard"
-            label="Dashboard"
-          />
+            <q-space />
 
-          <q-tab
-            name="tasks"
-            icon="task"
-            label="Tareas"
-          />
-
-          <q-tab
-            name="rules"
-            icon="rule"
-            label="Reglas"
-          />
-
-          <q-tab
-            name="evaluators"
-            icon="groups"
-            label="Evaluadores"
-          />
-
-          <q-tab
-            name="responses"
-            icon="question_answer"
-            label="Respuestas"
-          />
-
-          <q-tab
-            name="problems"
-            icon="report_problem"
-            label="Problemas"
-          />
-
-          <q-tab
-            name="recommendations"
-            icon="lightbulb"
-            label="Recomendaciones"
-          />
-        </q-tabs>
-
-        <q-separator color="accent" />
-
-        <!-- Paneles -->
-        <q-tab-panels
-          v-model="tab"
-          animated
-        >
-
-          <!-- Dashboard -->
-          <q-tab-panel name="dashboard">
-            <CoordinatorDashboard
-              :dashboard="dashboard"
-              :responses="responses"
-              :problems="problems"
-              :recommendations="recommendations"
-              :evaluators="evaluators"
-              :response-stats="responseStats"
-              :problem-summary="problemSummary"
-              :loading="loading"
+            <q-btn
+              v-if="canCreateEvaluation"
+              color="primary"
+              icon="add"
+              label="Nueva Evaluación"
+              unelevated
+              @click="showEvaluationDialog = true"
             />
-          </q-tab-panel>
 
-          <!-- Tareas -->
-          <q-tab-panel name="tasks">
-            <TaskManager
-              :tasks="tasks"
-              :project-tasks="projectTasks"
-              :evaluation-id="currentEvaluation?.cognitiveEvaluationId"
-              :project-id="selectedProjectId"
-              :file-key="selectedProject?.fileKey"
-              :can-edit="canEdit"
-              @add-tasks="handleAddTasksFromProject"
-              @delete="handleDeleteTask"
+            <q-btn
+              v-if="currentEvaluation"
+              color="warning"
+              icon="edit"
+              flat
+              label="Editar"
+              @click="showEditEvaluationDialog = true"
             />
-          </q-tab-panel>
 
-          <!-- Reglas -->
-          <q-tab-panel name="rules">
-            <RulesManager
-              :rules="rules"
-              :can-edit="canEdit"
-              @add="handleAddRules"
-              @edit="handleEditRule"
-              @delete="handleDeleteRule"
-              @reorder="handleReorderRules"
+            <q-btn
+              v-if="currentEvaluation"
+              color="negative"
+              icon="delete"
+              flat
+              label="Eliminar"
+              @click="confirmDelete"
             />
-          </q-tab-panel>
+          </div>
+        </q-card-section>
 
-          <!-- Evaluadores -->
-          <q-tab-panel name="evaluators">
-            <EvaluatorManager
-              :evaluators="evaluators"
-              :users="availableUsers"
-              :can-edit="canEdit"
-              @add="handleAddEvaluators"
-              @remove="handleRemoveEvaluator"
+        <q-separator />
+
+        <q-card-section>
+          <!-- Lista de Evaluaciones -->
+          <div v-if="!currentEvaluation">
+            <EvaluationList
+              :evaluations="evaluations"
+              @select="loadEvaluation"
+              @create="showEvaluationDialog = true"
+              :can-create="canCreateEvaluation"
             />
-          </q-tab-panel>
+          </div>
 
-          <!-- Respuestas -->
-          <q-tab-panel name="responses">
-            <ResponsesViewer
-              :responses="responses"
-              :summary="responseSummary"
-              :stats="responseStats"
-              :loading="loading"
-              @refresh="loadResponses"
-            />
-          </q-tab-panel>
+          <!-- Detalle de Evaluación -->
+          <div v-else>
+            <!-- Información de la evaluación -->
+            <q-card flat bordered class="border-primary">
+              <q-card-section>
+                <div class="row items-center q-col-gutter-lg">
+                  <!-- Nombre -->
+                  <div class="col-12 col-sm-6 col-md-3">
+                    <div class="text-caption text-grey-6">Nombre</div>
+                    <div class="text-subtitle1 text-weight-medium">
+                      {{ currentEvaluation.name }}
+                    </div>
+                  </div>
 
-          <!-- Problemas -->
-          <q-tab-panel name="problems">
-            <ProblemManager
-              :problems="problems"
-              :tasks="tasks"
-              :can-edit="canEdit"
-              @add="handleAddProblem"
-              @edit="handleEditProblem"
-              @unify="handleUnifyProblems"
-              @status-change="handleProblemStatusChange"
-            />
-          </q-tab-panel>
+                  <!-- Estado -->
+                  <div class="col-12 col-sm-6 col-md-2">
+                    <div class="text-caption text-grey-6 q-mb-xs">Estado</div>
+                    <q-badge
+                      :color="getStatusColor(currentEvaluation.status)"
+                      class="q-px-sm q-py-xs"
+                    >
+                      {{ getStatusLabel(currentEvaluation.status) }}
+                    </q-badge>
+                  </div>
 
-          <!-- Recomendaciones -->
-          <q-tab-panel name="recommendations">
-            <RecommendationManager
-              :recommendations="recommendations"
-              :problems="problems"
-              :can-edit="canEdit"
-              @add="handleAddRecommendations"
-              @implement="handleImplementRecommendation"
-            />
-          </q-tab-panel>
+                  <!-- Duración -->
+                  <div class="col-12 col-sm-6 col-md-2">
+                    <div class="text-caption text-grey-6">Duración</div>
+                    <div class="text-subtitle1">
+                      {{ currentEvaluation.maxDurationMinutes }} min
+                    </div>
+                  </div>
 
-        </q-tab-panels>
+                  <!-- Progreso -->
+                  <div class="col-12 col-sm-6 col-md-2">
+                    <div class="text-caption text-grey-6 q-mb-xs">Progreso</div>
+                    <div class="row items-center q-gutter-sm">
+                      <q-circular-progress
+                        :value="evaluationProgress"
+                        size="42px"
+                        :color="getProgressColor(evaluationProgress)"
+                        track-color="grey-3"
+                        show-value
+                        font-size="10px"
+                      />
+                      <span class="text-weight-medium">
+                        {{ evaluationProgress }}%
+                      </span>
+                    </div>
+                  </div>
 
-      </div>
-    </q-card-section>
-  </q-card>
-</template>
+                  <q-space />
+
+                  <!-- Acciones -->
+                  <div class="col-12 col-md-auto">
+                    <div class="row q-gutter-sm">
+                      <q-btn
+                        v-if="canStart"
+                        color="positive"
+                        icon="play_arrow"
+                        label="Iniciar"
+                        unelevated
+                        @click="startEvaluation"
+                        :loading="loading"
+                      />
+
+                      <q-btn
+                        v-if="canComplete"
+                        color="primary"
+                        icon="check_circle"
+                        label="Completar"
+                        unelevated
+                        @click="completeEvaluation"
+                        :loading="loading"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Tabs -->
+            <q-tabs
+              v-model="tab"
+              class="bg-primary text-white q-mt-md"
+              active-color="white"
+              indicator-color="accent"
+              align="left"
+              no-caps
+            >
+              <q-tab name="dashboard" icon="dashboard" label="Dashboard" />
+              <q-tab name="tasks" icon="task" label="Tareas" />
+              <q-tab name="rules" icon="rule" label="Reglas" />
+              <q-tab name="evaluators" icon="groups" label="Evaluadores" />
+              <q-tab
+                name="responses"
+                icon="question_answer"
+                label="Respuestas"
+              />
+              <q-tab name="problems" icon="report_problem" label="Problemas" />
+              <q-tab
+                name="recommendations"
+                icon="lightbulb"
+                label="Recomendaciones"
+              />
+            </q-tabs>
+
+            <q-separator color="accent" />
+
+            <!-- Paneles -->
+            <q-tab-panels v-model="tab" animated>
+              <!-- Dashboard -->
+              <q-tab-panel name="dashboard">
+                <CoordinatorDashboard
+                  :dashboard="dashboard"
+                  :responses="responses"
+                  :problems="problems"
+                  :recommendations="recommendations"
+                  :evaluators="evaluators"
+                  :response-stats="responseStats"
+                  :problem-summary="problemSummary"
+                  :loading="loading"
+                />
+              </q-tab-panel>
+
+              <!-- Tareas -->
+              <q-tab-panel name="tasks">
+                <TaskManager
+                  :tasks="tasks"
+                  :project-tasks="projectTasks"
+                  :evaluation-id="currentEvaluation?.cognitiveEvaluationId"
+                  :project-id="selectedProjectId"
+                  :file-key="selectedProject?.fileKey"
+                  :can-edit="canEdit"
+                  @add-tasks="handleAddTasksFromProject"
+                  @delete="handleDeleteTask"
+                />
+              </q-tab-panel>
+
+              <!-- Reglas -->
+              <q-tab-panel name="rules">
+                <RulesManager
+                  :rules="rules"
+                  :can-edit="canEdit"
+                  @add="handleAddRules"
+                  @edit="handleEditRule"
+                  @delete="handleDeleteRule"
+                  @reorder="handleReorderRules"
+                />
+              </q-tab-panel>
+
+              <!-- Evaluadores -->
+              <q-tab-panel name="evaluators">
+                <EvaluatorManager
+                  :evaluators="evaluators"
+                  :users="availableUsers"
+                  :can-edit="canEdit"
+                  @add="handleAddEvaluators"
+                  @remove="handleRemoveEvaluator"
+                />
+              </q-tab-panel>
+
+              <!-- Respuestas -->
+              <q-tab-panel name="responses">
+                <ResponsesViewer
+                  :responses="responses"
+                  :summary="responseSummary"
+                  :stats="responseStats"
+                  :loading="loading"
+                  @refresh="loadResponses"
+                />
+              </q-tab-panel>
+
+              <!-- Problemas -->
+              <q-tab-panel name="problems">
+                <ProblemManager
+                  :problems="problems"
+                  :tasks="tasks"
+                  :can-edit="canEdit"
+                  @add="handleAddProblem"
+                  @edit="handleEditProblem"
+                  @unify="handleUnifyProblems"
+                  @status-change="handleProblemStatusChange"
+                />
+              </q-tab-panel>
+
+              <!-- Recomendaciones -->
+              <q-tab-panel name="recommendations">
+                <RecommendationManager
+                  :recommendations="recommendations"
+                  :problems="problems"
+                  :can-edit="canEdit"
+                  @add="handleAddRecommendations"
+                  @implement="handleImplementRecommendation"
+                />
+              </q-tab-panel>
+            </q-tab-panels>
+          </div>
+        </q-card-section>
+      </q-card>
+    </template>
   </div>
 
   <!-- Dialog: Crear Evaluación -->
@@ -460,6 +389,8 @@
     :projects="projects"
     :current-user-id="currentUser?.userId"
     :current-user-name="currentUser?.fullName"
+    :current-user-role="currentUserRole"
+    :supervisor-options="supervisorOptions"
     @save="handleCreateEvaluation"
   />
 
@@ -470,8 +401,11 @@
     :projects="projects"
     :current-user-id="currentUser?.userId"
     :current-user-name="currentUser?.fullName"
+    :current-user-role="currentUserRole"
+    :supervisor-options="supervisorOptions"
     @save="handleUpdateEvaluation"
   />
+
   <!-- Dialog: Agregar Tareas -->
   <TaskForm
     v-model="showTaskDialog"
@@ -498,7 +432,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { useQuasar, QDialog } from "quasar";
+import { useQuasar } from "quasar";
 import { useCognitiveEvaluation } from "@/composables/useCognitiveEvaluation";
 import EvaluationList from "@/components/cognitive/evaluations/EvaluationList.vue";
 import EvaluationForm from "@/components/cognitive/evaluations/EvaluationForm.vue";
@@ -513,6 +447,7 @@ import ProblemManager from "@/components/cognitive/problems/ProblemManager.vue";
 import RecommendationManager from "@/components/cognitive/recommendations/RecommendationManager.vue";
 import CoordinatorDashboard from "@/components/cognitive/dashboard/CoordinatorDashboard.vue";
 import { useAuthStore } from "@/stores/auth.store";
+import api from "@/api/axios";
 
 const $q = useQuasar();
 const {
@@ -593,16 +528,24 @@ const responseSummary = ref<any>(null);
 const responseStats = ref<any>(null);
 const problemSummary = ref<any>(null);
 const evaluationProgress = ref(0);
+const supervisorOptions = ref<{ label: string; value: string }[]>([]);
 const AuthUser = useAuthStore();
 
 // Computed
 const canCreateEvaluation = computed(() => {
   return selectedProjectId.value && !currentEvaluation.value;
 });
+
 const currentUser = computed(() => ({
   userId: AuthUser.user?.user_id,
   fullName: AuthUser.user?.display_name,
 }));
+
+const currentUserRole = computed(() =>
+  String(AuthUser.currentRole).trim()
+);
+
+const isDocente = computed(() => currentUserRole.value === 'Docente');
 
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
@@ -621,10 +564,6 @@ const getProgressColor = (progress: number) => {
   return "grey";
 };
 
-
-// ============================================================
-// FUNCIONES DE ESTADO
-// ============================================================
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
     draft: "grey",
@@ -637,9 +576,8 @@ const getStatusColor = (status: string) => {
 };
 
 const getRoleColor = (role: string | number) => {
-  // ✅ Si es número, convertirlo a string
   const roleStr = String(role || '').toLowerCase();
-  
+
   const colors: Record<string, string> = {
     coordinator: "purple",
     coordinador: "purple",
@@ -652,16 +590,23 @@ const getRoleColor = (role: string | number) => {
     student: "info",
     admin: "negative",
     administrador: "negative",
+    docente: "teal",
+    teacher: "teal",
   };
-  
+
   return colors[roleStr] || "grey";
 };
+
+
 // ============================================================
-// ✅ CARGAR PROYECTOS DEL USUARIO AUTENTICADO
+// ✅ CARGAR PROYECTOS (Docente = todos | Otros = asignados)
 // ============================================================
 const loadProjects = async () => {
   const userId = AuthUser.user?.user_id;
-  
+  const userRole = AuthUser.currentRole;
+
+  console.log("🔍 Rol del usuario autenticado:", userRole);
+
   if (!userId) {
     $q.notify({
       type: 'warning',
@@ -672,44 +617,56 @@ const loadProjects = async () => {
 
   loadingProjects.value = true;
   try {
-    console.log(" el usuario autenticado con el uuid es :", userId)
-    // Obtener los project_reviewers del usuario
-    const response = await api.get(`/project-reviewers/user/${userId}`);
-    const reviewers = response.data;
-    
-    console.log('📋 Project Reviewers del usuario:', response);
-    
-    // Obtener los detalles de cada proyecto
-    const projectPromises = reviewers.map(async (reviewer: any) => {
-      try {
-        const projectResponse = await api.get(`/figma-projects/${reviewer.projectId}`);
-        const project = projectResponse.data;
-        
-        // Agregar el rol del usuario en este proyecto
-        return {
-          ...project,
-          userRole: reviewer.roleName || reviewer.roleId || 'Revisor',
-          reviewerId: reviewer.projectReviewerId,
-          assignedAt: reviewer.assignedAt,
-        };
-      } catch (error) {
-        console.error(`Error cargando proyecto ${reviewer.projectId}:`, error);
-        return null;
-      }
-    });
-    
-    const projectResults = await Promise.all(projectPromises);
-    projects.value = projectResults.filter(p => p !== null);
-    
-    console.log('✅ Proyectos cargados:', projects.value);
-    
+    const isDocente = userRole === 'Docente';
+
+    if (isDocente) {
+      // 🔹 Docente: listar TODOS los proyectos del semestre
+      const { data: allProjects } = await api.get('/figma-projects');
+
+      projects.value = allProjects.map((project: any) => ({
+        ...project,
+        userRole: 'Docente',
+        reviewerId: null,
+        assignedAt: null,
+      }));
+
+      console.log('✅ Proyectos (Docente - todos):', projects.value);
+    } else {
+      // 🔹 Otros roles: solo los proyectos asignados
+      const response = await api.get(`/project-reviewers/user/${userId}`);
+      const reviewers = response.data;
+
+      const projectPromises = reviewers.map(async (reviewer: any) => {
+        try {
+          const projectResponse = await api.get(
+            `/figma-projects/${reviewer.projectId}`
+          );
+          const project = projectResponse.data;
+
+          return {
+            ...project,
+            userRole: reviewer.roleName || reviewer.roleId || 'Revisor',
+            reviewerId: reviewer.projectReviewerId,
+            assignedAt: reviewer.assignedAt,
+          };
+        } catch (error) {
+          console.error(`Error cargando proyecto ${reviewer.projectId}:`, error);
+          return null;
+        }
+      });
+
+      const projectResults = await Promise.all(projectPromises);
+      projects.value = projectResults.filter((p) => p !== null);
+
+      console.log('✅ Proyectos asignados:', projects.value);
+    }
+
     if (projects.value.length === 0) {
       $q.notify({
         type: 'info',
-        message: 'No tienes proyectos asignados'
+        message: 'No hay proyectos disponibles'
       });
     }
-    
   } catch (error: any) {
     console.error('Error al cargar proyectos:', error);
     $q.notify({
@@ -720,7 +677,6 @@ const loadProjects = async () => {
     loadingProjects.value = false;
   }
 };
-
 
 // ============================================================
 // CARGAR USUARIOS DISPONIBLES PARA EVALUADORES
@@ -739,6 +695,48 @@ const loadAvailableUsers = async () => {
   }
 };
 
+// ============================================================
+// CARGAR SUPERVISORES (Coordinadores + Docentes)
+// ============================================================
+const loadSupervisors = async () => {
+  try {
+    const { data } = await api.get('/users');
+
+    // ✅ Roles permitidos tal como vienen del backend (capitalizados)
+    const allowedRoles = ['Coordinador', 'Docente'];
+
+    const supervisors = data
+      .filter((u: any) => {
+        const role = String(u.role_name || u.role || '').trim();
+        return allowedRoles.includes(role);
+      })
+      .map((u: any) => ({
+        label: `${u.display_name || u.full_name || u.email} (${
+          u.role_name || u.role
+        })`,
+        value: u.user_id,
+      }));
+
+    // Asegurar que el docente actual esté en la lista
+    const currentId = AuthUser.user?.user_id;
+    const currentName = AuthUser.user?.display_name;
+    if (currentId && !supervisors.some((s: any) => s.value === currentId)) {
+      supervisors.push({
+        label: `${currentName} (Docente)`,
+        value: currentId,
+      });
+    }
+
+    supervisorOptions.value = supervisors;
+    console.log('✅ Supervisores disponibles:', supervisorOptions.value);
+  } catch (error) {
+    console.error('Error al cargar supervisores:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Error al cargar supervisores',
+    });
+  }
+};
 
 const getTaskCount = (projectId: string) => {
   return projectTasks.value.filter((t) => t.projectId === projectId).length;
@@ -747,7 +745,6 @@ const getTaskCount = (projectId: string) => {
 const getEvaluationCount = (projectId: string) => {
   return evaluations.value.filter((e) => e.projectId === projectId).length;
 };
-
 
 // Methods
 const selectProject = async (projectId: string) => {
@@ -789,7 +786,6 @@ const handleAddTasksFromProject = async (selectedTasks: any[]) => {
   }
 };
 
-
 const loadProjectTasks = async (projectId: string) => {
   try {
     const { data } = await api.get(`/tasks/projectId/${projectId}`);
@@ -814,7 +810,7 @@ const handleUpdateEvaluation = async (data: any) => {
   showEditEvaluationDialog.value = false;
 };
 
-const handleStartEvaluation = async () => {
+const startEvaluation = async () => {
   const confirm = await $q.dialog({
     title: "Iniciar Evaluación",
     message:
@@ -828,7 +824,7 @@ const handleStartEvaluation = async () => {
   }
 };
 
-const handleCompleteEvaluation = async () => {
+const completeEvaluation = async () => {
   const confirm = await $q.dialog({
     title: "Completar Evaluación",
     message:
@@ -859,6 +855,7 @@ const confirmDelete = async () => {
 const selectedProject = computed(() => {
   return projects.value.find(p => p.projectId === selectedProjectId.value)
 })
+
 const handleExportReport = async () => {
   const result = await $q.dialog({
     title: "Exportar Reporte",
@@ -924,7 +921,6 @@ const handleDeleteRule = async (id: string) => {
 };
 
 const handleReorderRules = async (ruleIds: string[]) => {
-  // Implementar reorden de reglas
   await api.reorderRules(
     currentEvaluation.value.cognitiveEvaluationId,
     ruleIds,
@@ -939,7 +935,6 @@ const handleAddEvaluators = () => {
 
 const handleAddEvaluatorsBatch = async (data: any) => {
   console.log("DATA COMPLETA:", JSON.stringify(data, null, 2));
-
   console.log("EVALUADORES:", data.evaluators);
 
   data.evaluators.forEach((evaluator: any, index: number) => {
@@ -948,7 +943,6 @@ const handleAddEvaluatorsBatch = async (data: any) => {
   });
 
   await assignEvaluatorsBatch(data);
-
   showEvaluatorDialog.value = false;
 };
 
@@ -991,7 +985,6 @@ watch(currentEvaluation, async (val) => {
   if (val) {
     await loadAllData(val.cognitiveEvaluationId);
 
-    // Calcular progreso
     const totalTasks = tasks.value.length;
     const completedTasks = tasks.value.filter(
       (t) => t.status === "completed",
@@ -1000,18 +993,17 @@ watch(currentEvaluation, async (val) => {
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   }
 });
+
 // Lifecycle
 onMounted(() => {
   loadProjects();
   loadEvaluations();
   loadAvailableUsers();
+  loadSupervisors();
   if (selectedProjectId.value) {
     loadProjectTasks(selectedProjectId.value);
   }
 });
-
-// API para llamadas adicionales
-import api from "@/api/axios";
 </script>
 
 <style scoped>

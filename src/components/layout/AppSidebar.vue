@@ -128,12 +128,12 @@ const allNavItems: NavItem[] = [
   roles: ['Coordinador', 'Docente', 'Administrador','Experto UX'],
 },
 
-  { to: '/Coordinador', icon: 'assignment', label: 'Método Cognitivo', roles: ['Coordinador', 'Administrador'] },
+  { to: '/Coordinador', icon: 'assignment', label: 'Método Cognitivo', roles: ['Coordinador', 'Administrador','Docente'] },
   { 
   to: '/Coordinador/Heuristico', 
   icon: 'fact_check', 
   label: 'Método Heurístico', 
-  roles: ['Coordinador', 'Administrador'] 
+  roles: ['Coordinador', 'Administrador','Docente'] 
 },  
   
 

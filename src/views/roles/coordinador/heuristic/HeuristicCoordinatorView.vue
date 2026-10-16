@@ -681,6 +681,7 @@ function goToDetailDirect(evaluation: HeuristicEvaluation) {
 // ============================================================
 async function loadProjects() {
   const userId = auth.user?.user_id
+  const userRole = auth.currentRole
   if (!userId) {
     $q.notify({ type: 'warning', message: 'No hay usuario autenticado' })
     return
@@ -688,6 +689,26 @@ async function loadProjects() {
 
   loadingProjects.value = true
   try {
+     const isDocente = userRole === 'Docente';
+
+    if (isDocente) {
+      // 🔹 Docente: listar TODOS los proyectos del semestre
+      const { data: allProjects } = await api.get('/figma-projects');
+
+      // Si el endpoint soporta filtro por semestre, úsalo:
+      // const { data: allProjects } = await api.get('/figma-projects', {
+      //   params: { semester: currentSemester } // o el que uses
+      // });
+
+      projects.value = allProjects.map((project: any) => ({
+        ...project,
+        userRole: 'Docente',
+        reviewerId: null,
+        assignedAt: null,
+      }));
+
+      console.log('✅ Proyectos (Docente - todos):', projects.value);
+    } else {
     // Obtener reviewers del usuario
     const { data: reviewers } = await api.get(`/project-reviewers/user/${userId}`)
 
@@ -713,6 +734,9 @@ async function loadProjects() {
     if (projects.value.length === 0) {
       $q.notify({ type: 'info', message: 'No tienes proyectos asignados' })
     }
+
+    }
+
   } catch (e: any) {
     console.error('Error al cargar proyectos:', e)
     $q.notify({ type: 'negative', message: 'Error al cargar proyectos' })
