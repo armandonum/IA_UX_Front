@@ -1,4 +1,3 @@
-```vue
 <template>
   <div>
     <!-- Tabs -->
@@ -406,7 +405,6 @@
     </q-tab-panels>
   </div>
 </template>
-```
 
 
 <script setup lang="ts">

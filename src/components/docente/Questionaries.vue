@@ -29,6 +29,7 @@
     <QuestionnaireSelector
       v-model:project-id="selectedProjectId"
       v-model:type="selectedType"
+      :semester-id="semesterId"
     />
 
     <q-separator class="q-my-lg" />
@@ -123,6 +124,10 @@ import QuestionEditor from './questionaries/QuestionEditor.vue'
 
 const $q = useQuasar()
 
+const props = defineProps<{
+  semesterId?: string | null
+}>()
+
 const docenteStore =
   useDocenteStore()
 
@@ -159,6 +164,15 @@ onMounted(async () => {
   await docenteStore.fetchProjects()
 
 })
+
+// Al cambiar de semestre, reiniciar el proyecto seleccionado
+watch(
+  () => props.semesterId,
+  () => {
+    selectedProjectId.value = undefined
+    selectedQuestionId.value = undefined
+  },
+)
 
 watch(
   [

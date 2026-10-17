@@ -7,7 +7,7 @@
         <q-select
           v-model="selectedProject"
           filled
-          :options="store.projects"
+          :options="semesterProjects"
           option-label="projectName"
           option-value="projectId"
           label="Proyecto"
@@ -192,7 +192,17 @@ import type { Flow } from '@/types/docente.types'
 const $q = useQuasar()
 const store = useDocenteStore()
 
+const props = defineProps<{
+  semesterId?: string | null
+}>()
+
 const CLIENT_ID = import.meta.env.VITE_FIGMA_CLIENT_ID ?? 'ATBfU46hXxHKWnVxld4rL9'
+
+// Proyectos visibles: solo los del semestre actual
+const semesterProjects = computed(() => {
+  if (!props.semesterId) return store.projects
+  return store.projects.filter((p: any) => p.semesterId === props.semesterId)
+})
 
 const selectedProject = ref<string | null>(null)
 const selectedRequirement = ref<string | null>(null)
@@ -370,4 +380,16 @@ onMounted(async () => {
     $q.notify({ type: 'negative', message: e.message ?? 'No se pudo cargar los proyectos' })
   }
 })
+
+// Al cambiar de semestre, reiniciar las selecciones dependientes
+watch(
+  () => props.semesterId,
+  () => {
+    selectedProject.value = null
+    selectedRequirement.value = null
+    selectedTask.value = null
+    store.requirements.length = 0
+    store.tasks.length = 0
+  },
+)
 </script>

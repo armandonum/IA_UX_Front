@@ -142,6 +142,8 @@ const {
   markTaskCompleted,
   markEvaluatorCompleted,
   myEvaluatorId,
+  myProgress,
+  allMyTasksCompleted,
 } = useHeuristicExpert()
 
 const clientId = computed(() => figmaSession.clientId)
@@ -234,13 +236,17 @@ let audioLevelInterval: ReturnType<typeof setInterval> | null = null
 // COMPUTED
 // ============================================================
 const tasksWithStatus = computed(() =>
-  tasks.value.map(task => ({
-    taskId: task.id,
-    title: task.title,
-    description: task.description || '',
-    reviewed: task.status === 'completed',
-    inProgress: currentTaskId.value === task.id,
-  })),
+  tasks.value.map(task => {
+    const progress = myProgress.value.find(p => p.taskId === task.id)
+    const myStatus = progress?.status || 'pending'
+    return {
+      taskId: task.id,
+      title: task.title,
+      description: task.description || '',
+      reviewed: myStatus === 'completed',
+      inProgress: currentTaskId.value === task.id && myStatus !== 'completed',
+    }
+  }),
 )
 
 const observationsMapped = computed(() =>
@@ -508,6 +514,11 @@ async function pedirPermisosYContinuar() {
 // ============================================================
 async function seleccionarTarea(task: any) {
   console.log('🎯 [seleccionarTarea] Tarea seleccionada:', task)
+
+  if (task.reviewed) {
+    $q.notify({ type: 'info', message: 'Esta tarea ya fue completada' })
+    return
+  }
 
   const originalTask = tasks.value.find(t => t.id === task.taskId)
   if (!originalTask) {
@@ -1081,11 +1092,11 @@ async function marcarTareaCompleta() {
 
     $q.notify({ type: 'positive', message: '✅ Tarea completada' })
 
-    const pendientes = tasks.value.filter(t => t.status !== 'completed')
-    if (pendientes.length === 0) {
+    if (allMyTasksCompleted.value) {
+      await markEvaluatorCompleted()
       $q.notify({
         type: 'info',
-        message: '🎉 ¡Todas las tareas han sido completadas!',
+        message: '🎉 ¡Completaste todas las tareas! La evaluación fue marcada como completada.',
       })
     }
   } catch (e) {

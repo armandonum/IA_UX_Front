@@ -15,8 +15,8 @@
         </div>
       </div>
 
-      <!-- Selector de semestre -->
-      <div style="min-width: 260px;">
+      <!-- Selector de semestre (oculto para Docente: lo provee la barra global) -->
+      <div v-if="!isDocente" style="min-width: 260px;">
         <q-select
           v-model="selectedSemesterId"
           :options="semesterStore.semesters"
@@ -134,7 +134,7 @@
         <!-- TAB: Cuestionarios                                            -->
         <!-- ============================================================ -->
         <q-tab-panel name="questionnaires" class="q-pa-none">
-          <Questionaries />
+          <Questionaries :semester-id="selectedSemesterId" />
         </q-tab-panel>
 
         <!-- ============================================================ -->
@@ -155,7 +155,7 @@
         <!-- TAB: Flujos                                                   -->
         <!-- ============================================================ -->
         <q-tab-panel name="flows" class="q-pa-none">
-          <FlowsPanel />
+          <FlowsPanel :semester-id="selectedSemesterId" />
         </q-tab-panel>
 
         <!-- ============================================================ -->
@@ -190,9 +190,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useDocenteManagement } from '@/composables/useDocenteManagement'
 import { useSemesterStore } from '@/stores/semester.store'
+import { useAuthStore } from '@/stores/auth.store'
 
 // Componentes existentes
 import Questionaries from '@/components/docente/Questionaries.vue'
@@ -205,6 +206,9 @@ import FrameworksView from '@/views/roles/docente/heuristics/FrameworksView.vue'
 import EvaluationsListView from '@/views/roles/docente/heuristics/EvaluationsListView.vue'
 
 const semesterStore = useSemesterStore()
+const auth = useAuthStore()
+
+const isDocente = computed(() => auth.currentRole === 'Docente')
 
 const {
   selectedSemesterId,

@@ -4,7 +4,7 @@
       <q-select
         :model-value="projectId"
         filled
-        :options="docenteStore.projects"
+        :options="projectOptions"
         option-label="projectName"
         option-value="projectId"
         label="Proyecto"
@@ -31,11 +31,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useDocenteStore } from '@/stores/docente.stores'
 
-defineProps<{
+const props = defineProps<{
   projectId?: string
   type: 'pretest' | 'posttest'
+  semesterId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -44,4 +46,10 @@ const emit = defineEmits<{
 }>()
 
 const docenteStore = useDocenteStore()
+
+// Proyectos visibles: solo los del semestre actual (si se especifica)
+const projectOptions = computed(() => {
+  if (!props.semesterId) return docenteStore.projects
+  return docenteStore.projects.filter((p: any) => p.semesterId === props.semesterId)
+})
 </script>

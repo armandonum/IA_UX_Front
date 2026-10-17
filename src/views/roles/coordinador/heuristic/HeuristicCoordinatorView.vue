@@ -587,11 +587,13 @@ import { useQuasar } from 'quasar'
 import { useAuthStore } from '@/stores/auth.store'
 import { useHeuristicCoordinator } from '@/composables/coordinator/useHeuristicCoordinator'
 import { heuristicApi, type HeuristicEvaluation } from '@/api/heuristic.api'
+import { useSemesterStore } from '@/stores/semester.store'
 import api from '@/api/axios'
 
 const router = useRouter()
 const $q = useQuasar()
 const auth = useAuthStore()
+const semesterStore = useSemesterStore()
 
 const {
   loading,
@@ -692,22 +694,22 @@ async function loadProjects() {
      const isDocente = userRole === 'Docente';
 
     if (isDocente) {
-      // 🔹 Docente: listar TODOS los proyectos del semestre
+      // 🔹 Docente: listar TODOS los proyectos del semestre seleccionado
       const { data: allProjects } = await api.get('/figma-projects');
 
-      // Si el endpoint soporta filtro por semestre, úsalo:
-      // const { data: allProjects } = await api.get('/figma-projects', {
-      //   params: { semester: currentSemester } // o el que uses
-      // });
+      const semesterId = semesterStore.currentSemester?.semesterId;
+      const semesterProjects = semesterId
+        ? allProjects.filter((p: any) => p.semesterId === semesterId)
+        : allProjects;
 
-      projects.value = allProjects.map((project: any) => ({
+      projects.value = semesterProjects.map((project: any) => ({
         ...project,
         userRole: 'Docente',
         reviewerId: null,
         assignedAt: null,
       }));
 
-      console.log('✅ Proyectos (Docente - todos):', projects.value);
+      console.log('✅ Proyectos (Docente - semestre):', projects.value);
     } else {
     // Obtener reviewers del usuario
     const { data: reviewers } = await api.get(`/project-reviewers/user/${userId}`)
@@ -1033,11 +1035,30 @@ watch(selectedProjectId, (newVal) => {
   }
 })
 
+// Al cambiar el semestre global, recargar los proyectos del nuevo semestre
+watch(
+  () => semesterStore.currentSemester?.semesterId,
+  async (newId, oldId) => {
+    if (newId === oldId) return
+    selectedProjectId.value = null
+    reset()
+    await loadProjects()
+  },
+)
+
 // ============================================================
 // LIFECYCLE
 // ============================================================
 onMounted(async () => {
   await loadFrameworks()
+  if (semesterStore.semesters.length === 0) {
+    await semesterStore.fetchSemesters()
+  }
+  if (!semesterStore.currentSemester && semesterStore.semesters.length > 0) {
+    const active =
+      semesterStore.semesters.find((s: any) => s.isActive) || semesterStore.semesters[0]
+    if (active) semesterStore.setCurrentSemester(active.semesterId)
+  }
   await loadProjects()
 })
 </script>

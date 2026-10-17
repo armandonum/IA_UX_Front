@@ -6,15 +6,6 @@
       <div class="text-h6 text-weight-medium">
         Evaluaciones
       </div>
-
-      <q-btn
-        v-if="canCreate"
-        color="primary"
-        icon="add"
-        label="Nueva Evaluación"
-        unelevated
-        @click="$emit('create')"
-      />
     </div>
 
     <!-- Lista -->

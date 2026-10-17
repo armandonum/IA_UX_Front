@@ -298,7 +298,7 @@
                   :responses="responses"
                   :problems="problems"
                   :recommendations="recommendations"
-                  :evaluators="evaluators"
+                  :evaluators="evaluatorsWithUser"
                   :response-stats="responseStats"
                   :problem-summary="problemSummary"
                   :loading="loading"
@@ -334,7 +334,7 @@
               <!-- Evaluadores -->
               <q-tab-panel name="evaluators">
                 <EvaluatorManager
-                  :evaluators="evaluators"
+                  :evaluators="evaluatorsWithUser"
                   :users="availableUsers"
                   :can-edit="canEdit"
                   @add="handleAddEvaluators"
@@ -349,7 +349,7 @@
                   :summary="responseSummary"
                   :stats="responseStats"
                   :loading="loading"
-                  @refresh="loadResponses"
+                  @refresh="handleRefreshResponses"
                 />
               </q-tab-panel>
 
@@ -391,6 +391,7 @@
     :current-user-name="currentUser?.fullName"
     :current-user-role="currentUserRole"
     :supervisor-options="supervisorOptions"
+    :default-project-id="selectedProjectId"
     @save="handleCreateEvaluation"
   />
 
@@ -447,6 +448,7 @@ import ProblemManager from "@/components/cognitive/problems/ProblemManager.vue";
 import RecommendationManager from "@/components/cognitive/recommendations/RecommendationManager.vue";
 import CoordinatorDashboard from "@/components/cognitive/dashboard/CoordinatorDashboard.vue";
 import { useAuthStore } from "@/stores/auth.store";
+import { useSemesterStore } from "@/stores/semester.store";
 import api from "@/api/axios";
 
 const $q = useQuasar();
@@ -461,6 +463,9 @@ const {
   problems,
   recommendations,
   dashboard,
+  responseSummary,
+  responseStats,
+  problemSummary,
   loading,
   selectedProjectId,
   selectedEvaluationId,
@@ -494,11 +499,14 @@ const {
   createRulesBatch,
   updateRule,
   deleteRule,
+  reorderRules,
   loadEvaluators,
   assignEvaluatorsBatch,
   removeEvaluator,
   loadResponses,
   loadResponseSummary,
+  loadResponseStats,
+  refreshResponses,
   loadProblems,
   loadProblemSummary,
   createProblem,
@@ -524,12 +532,22 @@ const showEditEvaluationDialog = ref(false);
 const showTaskDialog = ref(false);
 const showRulesDialog = ref(false);
 const showEvaluatorDialog = ref(false);
-const responseSummary = ref<any>(null);
-const responseStats = ref<any>(null);
-const problemSummary = ref<any>(null);
 const evaluationProgress = ref(0);
 const supervisorOptions = ref<{ label: string; value: string }[]>([]);
 const AuthUser = useAuthStore();
+const semesterStore = useSemesterStore();
+
+// Evaluadores enriquecidos con display_name y email desde la lista de usuarios
+const evaluatorsWithUser = computed(() =>
+  (evaluators.value || []).map((e: any) => {
+    const user = availableUsers.value.find((u: any) => u.user_id === e.userId);
+    return {
+      ...e,
+      userFullName: user?.display_name || user?.full_name || e.userFullName || null,
+      userEmail: user?.email || e.userEmail || null,
+    };
+  }),
+);
 
 // Computed
 const canCreateEvaluation = computed(() => {
@@ -620,17 +638,22 @@ const loadProjects = async () => {
     const isDocente = userRole === 'Docente';
 
     if (isDocente) {
-      // 🔹 Docente: listar TODOS los proyectos del semestre
+      // 🔹 Docente: listar TODOS los proyectos del semestre seleccionado
       const { data: allProjects } = await api.get('/figma-projects');
 
-      projects.value = allProjects.map((project: any) => ({
+      const semesterId = semesterStore.currentSemester?.semesterId;
+      const semesterProjects = semesterId
+        ? allProjects.filter((p: any) => p.semesterId === semesterId)
+        : allProjects;
+
+      projects.value = semesterProjects.map((project: any) => ({
         ...project,
         userRole: 'Docente',
         reviewerId: null,
         assignedAt: null,
       }));
 
-      console.log('✅ Proyectos (Docente - todos):', projects.value);
+      console.log('✅ Proyectos (Docente - semestre):', projects.value);
     } else {
       // 🔹 Otros roles: solo los proyectos asignados
       const response = await api.get(`/project-reviewers/user/${userId}`);
@@ -700,32 +723,49 @@ const loadAvailableUsers = async () => {
 // ============================================================
 const loadSupervisors = async () => {
   try {
+    // 1) Asegurar que haya un semestre actual seleccionado
+    if (semesterStore.semesters.length === 0) {
+      await semesterStore.fetchSemesters();
+    }
+    if (!semesterStore.currentSemester && semesterStore.semesters.length > 0) {
+      const active = semesterStore.semesters.find((s: any) => s.isActive);
+      if (active) semesterStore.setCurrentSemester(active.semesterId);
+    }
+
+    const semesterId = semesterStore.currentSemester?.semesterId;
+    if (!semesterId) {
+      supervisorOptions.value = [];
+      return;
+    }
+
+    // 2) Usuarios asignados a ese semestre (cualquier rol)
+    const semesterUsers = await semesterStore.getStudentsBySemester(semesterId);
+    const semesterUserIds = new Set(
+      (semesterUsers || []).map((s: any) => s.userId)
+    );
+
+    // 3) Usuarios con sus roles
     const { data } = await api.get('/users');
 
-    // ✅ Roles permitidos tal como vienen del backend (capitalizados)
+    // El input "Supervisor" corresponde a Coordinadores y Docentes del semestre
     const allowedRoles = ['Coordinador', 'Docente'];
 
-    const supervisors = data
-      .filter((u: any) => {
-        const role = String(u.role_name || u.role || '').trim();
-        return allowedRoles.includes(role);
-      })
-      .map((u: any) => ({
-        label: `${u.display_name || u.full_name || u.email} (${
-          u.role_name || u.role
-        })`,
-        value: u.user_id,
-      }));
-
-    // Asegurar que el docente actual esté en la lista
-    const currentId = AuthUser.user?.user_id;
-    const currentName = AuthUser.user?.display_name;
-    if (currentId && !supervisors.some((s: any) => s.value === currentId)) {
-      supervisors.push({
-        label: `${currentName} (Docente)`,
-        value: currentId,
+    const supervisors = (data || [])
+      .filter((u: any) => semesterUserIds.has(u.user_id))
+      .filter((u: any) =>
+        (u.roles ?? []).some((r: any) =>
+          allowedRoles.includes(String(r.name).trim())
+        )
+      )
+      .map((u: any) => {
+        const roleName = (u.roles ?? []).find((r: any) =>
+          allowedRoles.includes(String(r.name).trim())
+        )?.name;
+        return {
+          label: `${u.display_name || u.full_name || u.email} (${roleName})`,
+          value: u.user_id,
+        };
       });
-    }
 
     supervisorOptions.value = supervisors;
     console.log('✅ Supervisores disponibles:', supervisorOptions.value);
@@ -863,8 +903,9 @@ const handleExportReport = async () => {
     options: {
       type: "radio",
       items: [
-        { label: "PDF", value: "pdf" },
-        { label: "DOCX", value: "docx" },
+        { label: "Excel", value: "excel" },
+        { label: "CSV", value: "csv" },
+        { label: "JSON", value: "json" },
       ],
     },
     ok: "Exportar",
@@ -921,11 +962,17 @@ const handleDeleteRule = async (id: string) => {
 };
 
 const handleReorderRules = async (ruleIds: string[]) => {
-  await api.reorderRules(
+  if (!currentEvaluation.value) return;
+  await reorderRules(
     currentEvaluation.value.cognitiveEvaluationId,
     ruleIds,
   );
-  await loadRules(currentEvaluation.value.cognitiveEvaluationId);
+};
+
+const handleRefreshResponses = async () => {
+  const id = currentEvaluation.value?.cognitiveEvaluationId;
+  if (!id) return;
+  await refreshResponses(id);
 };
 
 // Handlers - Evaluators
@@ -993,6 +1040,18 @@ watch(currentEvaluation, async (val) => {
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   }
 });
+
+// Al cambiar el semestre global, recargar proyectos y personas
+watch(
+  () => semesterStore.currentSemester?.semesterId,
+  async (newId, oldId) => {
+    if (newId === oldId) return;
+    selectedProjectId.value = null;
+    await loadProjects();
+    await loadAvailableUsers();
+    await loadSupervisors();
+  },
+);
 
 // Lifecycle
 onMounted(() => {

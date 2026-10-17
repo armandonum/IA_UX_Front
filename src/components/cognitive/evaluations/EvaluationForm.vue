@@ -120,6 +120,7 @@ const props = defineProps<{
   currentUserName?: string
   currentUserRole?: string
   supervisorOptions?: { label: string; value: string }[]
+  defaultProjectId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -157,7 +158,7 @@ const resetForm = () => {
   form.value = {
     name: '',
     description: '',
-    projectId: '',
+    projectId: props.defaultProjectId || '',
     supervisorId: props.currentUserId || '',
     maxDurationMinutes: 20,
     targetUserDescription: '',
@@ -184,6 +185,13 @@ watch(
   },
   { immediate: true }
 )
+
+// Al abrir el diálogo en modo creación, precargar el proyecto seleccionado
+watch(visible, (open) => {
+  if (open && !props.evaluation) {
+    form.value.projectId = props.defaultProjectId || ''
+  }
+})
 
 const close = () => {
   visible.value = false

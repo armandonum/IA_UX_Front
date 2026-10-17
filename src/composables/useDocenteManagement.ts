@@ -1,5 +1,5 @@
 // composables/useDocenteManagement.ts
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useSemesterStore } from '@/stores/semester.store'
 import { useAuthStore } from '@/stores/auth.store'
@@ -16,7 +16,13 @@ export function useDocenteManagement() {
   // ==========================================
   // ESTADO PRINCIPAL
   // ==========================================
-  const selectedSemesterId = ref<string | null>(null)
+  // ✅ Semestre seleccionado: respaldado por el store global (fuente única)
+  const selectedSemesterId = computed<string | null>({
+    get: () => semesterStore.currentSemester?.semesterId ?? null,
+    set: (val) => {
+      if (val) semesterStore.setCurrentSemester(val)
+    },
+  })
   const activeTab = ref<string>('frameworks')
 
   // ==========================================
@@ -81,15 +87,6 @@ export function useDocenteManagement() {
     }
     return true
   }
-
-  // ==========================================
-  // WATCHERS
-  // ==========================================
-  watch(selectedSemesterId, (newId) => {
-    if (newId) {
-      semesterStore.setCurrentSemester(newId)
-    }
-  })
 
   // ==========================================
   // EXPORT

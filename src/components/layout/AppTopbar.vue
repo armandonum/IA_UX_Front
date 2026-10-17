@@ -17,6 +17,11 @@
 
         </q-toolbar-title>
 
+        <SemesterSelector
+            v-if="isDocente"
+            class="q-mr-md"
+        />
+
         <q-chip
             color="primary"
             text-color="white"
@@ -75,6 +80,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import SemesterSelector from '@/components/common/SemesterSelector.vue'
 
 defineEmits(['toggle-sidebar'])
 
@@ -83,6 +89,8 @@ const route = useRoute()
 const router = useRouter()
 const menuOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+
+const isDocente = computed(() => auth.currentRole === 'Docente')
 
 const avatarInitials = computed(() => {
   const name = auth.user?.display_name ?? ''

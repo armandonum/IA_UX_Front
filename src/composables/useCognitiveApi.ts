@@ -209,6 +209,49 @@ export const useCognitiveApi = () => {
     await api.delete(`/cognitive-tasks/${id}`)
   }
 
+  const createTasksBatch = async (payload: any) => {
+    const tasks = Array.isArray(payload) ? payload : payload?.tasks ?? []
+    const results = []
+    for (const task of tasks) {
+      const { data } = await api.post('/cognitive-tasks', task)
+      results.push(data)
+    }
+    return results
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+  const getActions = async (taskId: string) => {
+    const { data } = await api.get(`/cognitive-actions/task/${taskId}?ordered=true`)
+    return data
+  }
+
+  const createActionsBatch = async (payload: any) => {
+    const taskId = payload?.taskId
+    const actions = Array.isArray(payload) ? payload : payload?.actions ?? []
+    const results = []
+    for (const action of actions) {
+      const { data } = await api.post('/cognitive-actions', { ...action, taskId })
+      results.push(data)
+    }
+    return results
+  }
+
+  const updateAction = async (id: string, payload: any) => {
+    const { data } = await api.put(`/cognitive-actions/${id}`, payload)
+    return data
+  }
+
+  const reorderActions = async (taskId: string, actionIds: string[]) => {
+    const { data } = await api.put(`/cognitive-actions/reorder/${taskId}`, { actionIds })
+    return data
+  }
+
+  const deleteAction = async (id: string) => {
+    await api.delete(`/cognitive-actions/${id}`)
+  }
+
   // ============================================================
   // RULES
   // ============================================================
@@ -363,46 +406,58 @@ export const useCognitiveApi = () => {
 
   // ============================================================
   // RECOMMENDATIONS
+  // Nota: el backend todavía no expone el módulo `cognitive-recommendations`.
+  // Se devuelven valores vacíos para evitar errores 404 en consola y
+  // mantener la UI funcional (estado vacío).
   // ============================================================
-  const getRecommendations = async (evaluationId: string) => {
-    const { data } = await api.get(`/cognitive-recommendations/evaluation/${evaluationId}`)
-    return data
+  const getRecommendations = async (_evaluationId: string): Promise<any[]> => []
+
+  const createRecommendation = async (_payload: any) => {
+    throw new Error('El módulo de recomendaciones aún no está disponible en el backend')
   }
 
-  const createRecommendation = async (payload: any) => {
-    const { data } = await api.post('/cognitive-recommendations', payload)
-    return data
+  const createRecommendationsBatch = async (_payload: any): Promise<any[]> => {
+    throw new Error('El módulo de recomendaciones aún no está disponible en el backend')
   }
 
-  const updateRecommendation = async (id: string, payload: any) => {
-    const { data } = await api.put(`/cognitive-recommendations/${id}`, payload)
-    return data
+  const updateRecommendation = async (_id: string, _payload: any) => {
+    throw new Error('El módulo de recomendaciones aún no está disponible en el backend')
   }
 
-  const implementRecommendation = async (id: string, notes: string) => {
-    const { data } = await api.put(`/cognitive-recommendations/${id}/implement`, { implementationNotes: notes })
-    return data
+  const implementRecommendation = async (_id: string, _notes: string) => {
+    throw new Error('El módulo de recomendaciones aún no está disponible en el backend')
   }
 
-  const deleteRecommendation = async (id: string) => {
-    await api.delete(`/cognitive-recommendations/${id}`)
+  const deleteRecommendation = async (_id: string) => {
+    throw new Error('El módulo de recomendaciones aún no está disponible en el backend')
   }
 
   // ============================================================
   // DASHBOARD & REPORTS
   // ============================================================
   const getDashboard = async (evaluationId: string) => {
-    const { data } = await api.get(`/cognitive/dashboard/${evaluationId}`)
-    return data
+    const { data } = await api.get(`/cognitive-dashboard/${evaluationId}`)
+    // Normaliza la respuesta del backend (taskStats anidado, progressPercentage)
+    // a la forma plana que consume CoordinatorDashboard.
+    const taskStats = data?.taskStats ?? {}
+    return {
+      ...data,
+      totalTasks: taskStats.total ?? 0,
+      completedTasks: taskStats.completed ?? 0,
+      inProgressTasks: taskStats.inProgress ?? 0,
+      failedTasks: taskStats.failed ?? 0,
+      pendingTasks: taskStats.pending ?? 0,
+      progress: data?.progressPercentage ?? 0,
+    }
   }
 
   const getReport = async (evaluationId: string) => {
-    const { data } = await api.get(`/cognitive/report/${evaluationId}`)
+    const { data } = await api.get(`/cognitive-dashboard/${evaluationId}`)
     return data
   }
 
-  const exportReport = async (evaluationId: string, format: 'pdf' | 'docx' = 'pdf') => {
-    const { data } = await api.get(`/cognitive/report/${evaluationId}/export?format=${format}`, {
+  const exportReport = async (evaluationId: string, format: 'excel' | 'csv' | 'json' = 'excel') => {
+    const { data } = await api.get(`/cognitive-export/${evaluationId}/${format}`, {
       responseType: 'blob'
     })
     return data
@@ -577,10 +632,17 @@ const createCognitiveSession = async (payload: any) => {
     getTasks,
     getTaskById,
     createTask,
+    createTasksBatch,
     updateTask,
     updateTaskStatus,
     reorderTasks,
     deleteTask,
+    // Actions
+    getActions,
+    createActionsBatch,
+    updateAction,
+    reorderActions,
+    deleteAction,
     // Rules
     getRules,
     createRule,
@@ -610,6 +672,7 @@ const createCognitiveSession = async (payload: any) => {
     // Recommendations
     getRecommendations,
     createRecommendation,
+    createRecommendationsBatch,
     updateRecommendation,
     implementRecommendation,
     deleteRecommendation,

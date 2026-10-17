@@ -9,6 +9,9 @@
         <div class="text-caption text-primary q-mt-xs">
           Sesión activa: {{ sessionId ? '✅ Grabando' : '⏳ Sin sesión' }}
         </div>
+        <div v-if="tasks.length" class="text-caption text-grey-7 q-mt-xs">
+          Progreso: {{ tasks.length - tareasPendientes }} de {{ tasks.length }} tareas completadas
+        </div>
       </q-card-section>
 
       <q-separator />
@@ -99,7 +102,7 @@
 
       <q-card-actions align="right" class="q-pa-md">
         <q-btn
-          v-if="tareasPendientes === 0 && sessionId"
+          v-if="tareasPendientes === 0"
           unelevated
           color="positive"
           icon="check"

@@ -23,6 +23,7 @@ export const useCognitiveEvaluation = () => {
 
   const responseStats = ref<any>(null)
 const problemSummary = ref<any>(null)
+  const responseSummary = ref<any>(null)
 
   const loading = ref(false)
   const selectedProjectId = ref<string | null>(null)
@@ -306,6 +307,15 @@ const problemSummary = ref<any>(null)
     }
   }
 
+  const reorderRules = async (evaluationId: string, ruleIds: string[]) => {
+    try {
+      await api.reorderRules(evaluationId, ruleIds)
+      await loadRules(evaluationId)
+    } catch (error: any) {
+      $q.notify({ type: 'negative', message: error.message || 'Error al reordenar reglas' })
+    }
+  }
+
   // ============================================================
   // METHODS - EVALUATORS
   // ============================================================
@@ -356,7 +366,8 @@ const problemSummary = ref<any>(null)
 
   const loadResponseSummary = async (evaluationId: string) => {
     try {
-      return await api.getResponseSummary(evaluationId)
+      responseSummary.value = await api.getResponseSummary(evaluationId)
+      return responseSummary.value
     } catch (error) {
       $q.notify({ type: 'negative', message: 'Error al cargar resumen' })
       return null
@@ -466,6 +477,14 @@ const problemSummary = ref<any>(null)
     console.error('Error loading response stats:', error)
   }
 }
+
+  const refreshResponses = async (evaluationId: string) => {
+    await Promise.all([
+      loadResponses(evaluationId),
+      loadResponseSummary(evaluationId),
+      loadResponseStats(evaluationId),
+    ])
+  }
   // ============================================================
   // METHODS - DASHBOARD
   // ============================================================
@@ -486,6 +505,7 @@ const problemSummary = ref<any>(null)
       loadRules(evaluationId),
       loadEvaluators(evaluationId),
       loadResponses(evaluationId),
+      loadResponseSummary(evaluationId),
       loadProblems(evaluationId),
       loadRecommendations(evaluationId),
       loadDashboard(evaluationId),
@@ -505,7 +525,7 @@ const problemSummary = ref<any>(null)
   // ============================================================
   // EXPORT REPORT
   // ============================================================
-  const exportReport = async (evaluationId: string, format: 'pdf' | 'docx' = 'pdf') => {
+  const exportReport = async (evaluationId: string, format: 'excel' | 'csv' | 'json' = 'excel') => {
     loading.value = true
     try {
       const blob = await api.exportReport(evaluationId, format)
@@ -537,6 +557,9 @@ const problemSummary = ref<any>(null)
     problems,
     recommendations,
     dashboard,
+    responseSummary,
+    responseStats,
+    problemSummary,
     loading,
     selectedProjectId,
     selectedEvaluationId,
@@ -575,6 +598,7 @@ const problemSummary = ref<any>(null)
     createRulesBatch,
     updateRule,
     deleteRule,
+    reorderRules,
     // Methods - Evaluators
     loadEvaluators,
     assignEvaluatorsBatch,
@@ -582,6 +606,8 @@ const problemSummary = ref<any>(null)
     // Methods - Responses
     loadResponses,
     loadResponseSummary,
+    loadResponseStats,
+    refreshResponses,
     // Methods - Problems
     loadProblems,
     loadProblemSummary,

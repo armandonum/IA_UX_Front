@@ -2,7 +2,7 @@
   <q-page>
     <div class="q-pa-lg" style="max-width: 1100px; margin: 0 auto;">
 
-      <!-- ================= HEADER CON SELECTOR DE SEMESTRE ================= -->
+      <!-- ================= HEADER ================= -->
       <div class="q-mb-lg">
         <div class="row items-center justify-between">
           <div>
@@ -12,44 +12,13 @@
             </div>
           </div>
 
-          <!-- Selector de Semestre -->
-          <div class="row q-gutter-sm items-center">
-            <q-select
-              v-model="selectedSemesterId"
-              filled
-              dense
-              style="min-width: 200px"
-              :options="semesters"
-              option-label="displayName"
-              option-value="semesterId"
-              label="Semestre"
-              emit-value
-              map-options
-              :loading="loadingSemesters"
-              @update:model-value="onSemesterChange"
-            >
-              <template v-slot:prepend>
-                <q-icon name="calendar_month" color="primary" />
-              </template>
-
-              <template v-slot:after>
-                <q-btn flat dense round icon="add" color="primary" @click="openCreateSemesterDialog">
-                  <q-tooltip>Crear nuevo semestre</q-tooltip>
-                </q-btn>
-              </template>
-
-              <template v-slot:no-option>
-                <div class="text-center q-pa-md">
-                  <div class="text-grey-6">No hay semestres</div>
-                  <q-btn flat dense color="primary" label="Crear primero" @click="openCreateSemesterDialog" />
-                </div>
-              </template>
-            </q-select> 
-
+          <!-- Semestre actual (el selector está en la barra superior, global) -->
+          <div v-if="selectedSemester" class="text-caption text-grey-7">
+            <q-icon name="calendar_month" size="16px" class="q-mr-xs" />
+            {{ selectedSemester.name }} ({{ selectedSemester.code }})
             <q-badge
-              v-if="selectedSemester"
               :color="selectedSemester.isActive ? 'positive' : 'grey-6'"
-              class="q-px-sm q-py-xs"
+              class="q-ml-sm q-px-sm q-py-xs"
             >
               {{ selectedSemester.isActive ? 'Activo' : 'Inactivo' }}
             </q-badge>
@@ -102,79 +71,12 @@
           </q-tab-panel>
         </q-tab-panels>
       </q-card>
-
-      <!-- ================= DIALOG: CREAR SEMESTRE ================= -->
-      <q-dialog v-model="createSemesterDialog">
-        <q-card style="width: 500px; max-width: 95vw;">
-          <q-card-section>
-            <div class="text-h6">Crear nuevo semestre</div>
-            <div class="text-caption text-grey-6">
-              Los semestres permiten organizar estudiantes, proyectos y evaluaciones.
-            </div>
-          </q-card-section>
-
-          <q-form @submit.prevent="onCreateSemester">
-            <q-card-section class="q-gutter-md">
-              <q-input
-                v-model="semesterForm.name"
-                filled
-                label="Nombre (ej. 1/26)"
-                hint="Identificador corto del semestre"
-                :rules="[required]"
-              />
-
-              <q-input
-                v-model="semesterForm.code"
-                filled
-                label="Código (ej. 2026-1)"
-                hint="Código único para el semestre"
-                :rules="[required]"
-              />
-
-              <div class="row q-col-gutter-md">
-                <div class="col-6">
-                  <q-input
-                    v-model="semesterForm.startDate"
-                    filled
-                    type="date"
-                    label="Fecha inicio"
-                    :rules="[required]"
-                  />
-                </div>
-                <div class="col-6">
-                  <q-input
-                    v-model="semesterForm.endDate"
-                    filled
-                    type="date"
-                    label="Fecha fin"
-                    :rules="[required]"
-                  />
-                </div>
-              </div>
-
-              <q-checkbox v-model="semesterForm.isActive" label="Activar este semestre" />
-            </q-card-section>
-
-            <q-card-actions align="right">
-              <q-btn flat label="Cancelar" @click="createSemesterDialog = false" />
-              <q-btn
-                unelevated
-                color="primary"
-                type="submit"
-                label="Crear semestre"
-                :loading="creatingSemester"
-              />
-            </q-card-actions>
-          </q-form>
-        </q-card>
-      </q-dialog>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useQuasar } from 'quasar'
+import { computed, onMounted, ref } from 'vue'
 import { useSemesterStore } from '@/stores/semester.store'
 import { useDocenteStore } from '@/stores/docente.stores'
 
@@ -185,108 +87,27 @@ import TasksPanel from '@/components/docente/TasksPanel.vue'
 import FlowsPanel from '@/components/docente/FlowsPanel.vue'
 import Questionaries from '@/components/docente/Questionaries.vue'
 
-const $q = useQuasar()
 const semesterStore = useSemesterStore()
 const docenteStore = useDocenteStore()
 
 const tab = ref('estudiantes')
-const selectedSemesterId = ref<string | null>(null)
-const loadingSemesters = ref(false)
-const creatingSemester = ref(false)
-const createSemesterDialog = ref(false)
 
-const semesterForm = reactive({
-  name: '',
-  code: '',
-  startDate: '',
-  endDate: '',
-  isActive: true,
-})
-
-const required = (val: string) => !!val || 'Campo obligatorio'
-
-// Computed
-const semesters = computed(() => 
-  semesterStore.semesters.map(s => ({
-    ...s,
-    displayName: `${s.name} (${s.code})`,
-  }))
+// ✅ Semestre actual: fuente única de verdad en semesterStore
+const selectedSemesterId = computed(
+  () => semesterStore.currentSemester?.semesterId ?? null,
 )
 
-const selectedSemester = computed(() =>
-  semesterStore.semesters.find(s => s.semesterId === selectedSemesterId.value)
-)
-
-// Métodos
-async function loadSemesters() {
-  loadingSemesters.value = true
-  try {
-    await semesterStore.fetchSemesters()
-    
-    // Seleccionar el semestre activo por defecto
-    const active = semesterStore.semesters.find(s => s.isActive)
-    if (active) {
-      selectedSemesterId.value = active.semesterId
-    } else if (semesterStore.semesters.length > 0) {
-      selectedSemesterId.value = semesterStore.semesters[0].semesterId
-    }
-  } catch (error: any) {
-    $q.notify({
-      type: 'negative',
-      message: error.message || 'No se pudieron cargar los semestres'
-    })
-  } finally {
-    loadingSemesters.value = false
-  }
-}
-
-function onSemesterChange() {
-  // El cambio de semestre se propaga a los paneles a través de props
-  // Cada panel escucha el cambio y recarga sus datos
-}
-
-function openCreateSemesterDialog() {
-  semesterForm.name = ''
-  semesterForm.code = ''
-  semesterForm.startDate = ''
-  semesterForm.endDate = ''
-  semesterForm.isActive = true
-  createSemesterDialog.value = true
-}
-
-async function onCreateSemester() {
-  creatingSemester.value = true
-  try {
-    const newSemester = await semesterStore.createSemester({
-      name: semesterForm.name,
-      code: semesterForm.code,
-      startDate: semesterForm.startDate,
-      endDate: semesterForm.endDate,
-      isActive: semesterForm.isActive,
-    })
-
-    $q.notify({
-      type: 'positive',
-      message: `Semestre "${semesterForm.name}" creado exitosamente`
-    })
-
-    createSemesterDialog.value = false
-    await loadSemesters()
-    
-    // Seleccionar el nuevo semestre
-    selectedSemesterId.value = newSemester.semesterId
-  } catch (error: any) {
-    $q.notify({
-      type: 'negative',
-      message: error.message || 'No se pudo crear el semestre'
-    })
-  } finally {
-    creatingSemester.value = false
-  }
-}
+const selectedSemester = computed(() => semesterStore.currentSemester)
 
 onMounted(async () => {
-  await loadSemesters()
+  if (semesterStore.semesters.length === 0) {
+    await semesterStore.fetchSemesters()
+  }
+  if (!semesterStore.currentSemester && semesterStore.semesters.length > 0) {
+    const active =
+      semesterStore.semesters.find((s) => s.isActive) || semesterStore.semesters[0]
+    if (active) semesterStore.setCurrentSemester(active.semesterId)
+  }
   await docenteStore.fetchProjects()
 })
 </script>
